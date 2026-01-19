@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奇迹宏宏 - 换装游戏</title>
+    <style>
+        /* --- 样式区域 (CSS) --- */
+        :root {
+            --bg-color: #fce4ec; /* 背景色 */
+            --sidebar-width: 40%; /* 左侧宽度 */
+        }
+
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; background-color: var(--bg-color); }
+
+        /* 布局容器 */
+        .container { display: flex; height: 100%; }
+
+        /* 左侧：衣橱与功能 */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            border-right: 2px solid #ff69b4;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        /* 衣橱列表区域 */
+        .wardrobe-list { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding: 10px; 
+        }
+        
+        .category-title {
+            background: #ff80ab;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            margin-top: 10px;
+        }
+        
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
+            gap: 8px;
+            padding: 5px 0;
+            justify-content: start;
+            transition: max-height 0.3s ease;
+        }
+
+        .icon-grid.collapsed { display: none; }
+
+        .item-icon {
+            aspect-ratio: 1 / 1;
+            background: #f5f5f5;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+            max-width: 100%;
+        }
+
+        .item-icon:hover {
+            transform: scale(1.1);
+        }
+
+        .item-icon img {
+            width: 80%;
+            height: 80%;
+            object-fit: contain;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .item-icon.selected { border-color: #4caf50; background: #e8f5e9; }
+        .item-icon.last-worn { border-color: #ff4081; background: #ffebee; }
+
+        /* 左侧底部按钮区 */
+        .controls {
+            height: 120px;
+            background: #eee;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            align-items: center;
+            padding: 5px;
+            border-top: 1px solid #ccc;
+        }
+
+        .control-btn {
+            width: 45%;
+            height: 40px;
+            background-size: 100% auto;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        
+        .control-btn span { 
+            font-size: 14px; 
+            font-weight: bold; 
+            color: #ff69b4; 
+        }
+        
+        .control-btn.btn-strip span {
+            color: #fff;
+        }
+
+        /* 右侧：展示区 */
+        .stage {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: radial-gradient(#fff 20%, transparent 20%);
+            background-size: 20px 20px;
+        }
+
+        /* 角色层级容器 */
+        .character-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            max-width: 600px;
+        }
+
+        /* 衣服图片通用样式 */
+        .clothing-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+            transition: transform 0.2s;
+        }
+
+        /* 对话框 */
+        .dialog-box {
+            position: absolute;
+            top: 10%;
+            right: 10%;
+            background: white;
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid #333;
+            max-width: 150px;
+            display: none;
+            animation: float 2s infinite ease-in-out;
+            z-index: 999;
+        }
+        .dialog-box:after {
+            content: ''; position: absolute; bottom: -10px; right: 20px;
+            border-width: 10px 10px 0; border-style: solid;
+            border-color: #333 transparent; display: block; width: 0;
+        }
+
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+        /* 底部统计 */
+        .footer-stats {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            text-shadow: 1px 1px 0 #fff;
+            z-index: 100;
+        }
+
+        /* 视频层 */
+        #video-overlay {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: black; display: none; z-index: 2000;
+        }
+        #video-overlay video { width: 100%; height: 100%; object-fit: contain; }
+
+        /* MOJO消消乐全屏容器 */
+        #mojo-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            display: none;
+            z-index: 3000;
+            overflow: auto;
+        }
+        #mojo-content {
+            width: 100%;
+            height: 100%;
+        }
+        #mojo-overlay .mojo-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            background: #ff69b4;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 3001;
+            display: none;
+        }
+
+        /* 让宏宏决定按钮 */
+        .random-btn {
+            position: absolute;
+            bottom: 50px;
+            right: 10px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #ff69b4, #ff80ab);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
+            z-index: 100;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .random-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 15px rgba(255, 105, 180, 0.6);
+        }
+        .random-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* MOJO消消乐按钮 */
+        .mojo-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #ff69b4, #ff80ab);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(255, 105, 180, 0.4);
+            z-index: 100;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .mojo-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 15px rgba(255, 105, 180, 0.6);
+        }
+        .mojo-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 响应式调整 */
+        @media (min-width: 1200px) {
+            :root { --sidebar-width: 35%; }
+            .category-title { font-size: 16px; padding: 10px 15px; }
+            .icon-grid { gap: 12px; }
+            .item-icon { min-width: 55px; }
+        }
+
+        @media (max-width: 1199px) and (min-width: 768px) {
+            :root { --sidebar-width: 40%; }
+            .category-title { font-size: 14px; padding: 8px 12px; }
+            .icon-grid { gap: 10px; }
+            .item-icon { min-width: 48px; }
+        }
+
+        @media (max-width: 767px) {
+            :root { --sidebar-width: 45%; }
+            .category-title { font-size: 12px; padding: 6px 10px; }
+            .icon-grid { gap: 6px; }
+            .item-icon { min-width: 42px; }
+            .control-btn span { font-size: 12px; }
+            .random-btn { padding: 8px 16px; font-size: 12px; bottom: 40px; }
+            .mojo-btn { padding: 8px 16px; font-size: 12px; top: 10px; right: 5px; }
+            .footer-stats { font-size: 10px; }
+        }
+
+        @media (max-width: 479px) {
+            :root { --sidebar-width: 50%; }
+            .category-title { font-size: 11px; padding: 5px 8px; }
+            .icon-grid { gap: 4px; }
+            .item-icon { min-width: 38px; }
+            .controls { height: 100px; }
+            .control-btn span { font-size: 10px; }
+            .random-btn { padding: 6px 12px; font-size: 10px; bottom: 30px; right: 5px; }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 左侧区域 -->
+    <div class="sidebar">
+        <div class="wardrobe-list" id="wardrobe-container">
+            <!-- JS会自动在这里生成列表 -->
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" onclick="moveLayer(1)" style="background-image: url('assets/ui/btn_up.png')"><span>上移一层</span></button>
+            <button class="control-btn" onclick="moveLayer(-1)" style="background-image: url('assets/ui/btn_down.png')"><span>下移一层</span></button>
+            <button class="control-btn" onclick="undo()" style="background-image: url('assets/ui/btn_undo.png')"><span>上一步</span></button>
+            <button class="control-btn btn-strip" onclick="handleStrip()" style="background-image: url('assets/ui/btn_strip.png')"><span>一键脱衣</span></button>
+        </div>
+    </div>
+
+    <!-- 右侧区域 -->
+    <div class="stage" onclick="resetIdleTimer()">
+        <div class="character-container" id="character-container">
+            <img src="assets/clothing/body.png" class="clothing-layer" style="z-index: 0" alt="body">
+        </div>
+
+        <div class="dialog-box" id="dialog"></div>
+
+        <div id="video-overlay">
+            <video id="bonus-video" onended="closeVideo()">
+                <source src="assets/video/surprise.mp4" type="video/mp4">
+            </video>
+        </div>
+
+        <!-- MOJO消消乐全屏容器 -->
+        <div id="mojo-overlay">
+            <button class="mojo-close-btn" onclick="closeMojo()">×</button>
+            <div id="mojo-content">
+                <!-- Mojo游戏内容开始 -->
+                <style>
+                    #mojo-content {
+                        width: 100%;
+                        height: 100%;
+                    }
+                    #mojo-content * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
+                        -webkit-tap-highlight-color: transparent;
+                    }
+                    
+                    #mojo-content .game-body {
+                        font-family: 'Arial', sans-serif;
+                        background: linear-gradient(135deg, #e1e1e1 0%, #e1e1e1 100%);
+                        height: 100%;
+                        overflow: auto;
+                    }
+
+                    @media (max-width: 768px) {
+                        #mojo-content .game-area { padding: 5px; }
+                        #mojo-content .top-bar { margin: 20px 0 5px 0; padding: 8px 12px; }
+                        #mojo-content .game-board { gap: 1px; }
+                        #mojo-content .cell { border-width: 1px; border-radius: 3px; min-height: 32px; min-width: 32px; }
+                        #mojo-content .button-area { width: calc(100% - 16px); margin: 0 auto; padding: 8px; gap: 8px; }
+                        #mojo-content .game-button { width: 48px; height: 48px; flex-shrink: 0; }
+                        #mojo-content .level-info { font-size: 13px; }
+                        #mojo-content .score-display { font-size: 16px; }
+                    }
+
+                    @media (max-width: 480px) {
+                        #mojo-content .game-area { padding: 3px; }
+                        #mojo-content .top-bar { margin: 20px 0 3px 0; padding: 6px 10px; }
+                        #mojo-content .cell { min-height: 28px; min-width: 28px; }
+                        #mojo-content .button-area { padding: 5px; }
+                        #mojo-content .game-button { width: 45px; height: 45px; }
+                        #mojo-content .level-info { font-size: 12px; }
+                        #mojo-content .score-display { font-size: 14px; }
+                    }
+
+                    #mojo-content .game-container {
+                        width: 100%;
+                        height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        position: relative;
+                        padding-top: env(safe-area-inset-top);
+                        padding-bottom: env(safe-area-inset-bottom);
+                        box-sizing: border-box;
+                    }
+
+                    #mojo-content .game-area {
+                        flex: 1;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        padding: 10px;
+                        background: url('assets/mojo/background.png') center/cover no-repeat;
+                        position: relative;
+                    }
+
+                    #mojo-content .top-bar {
+                        height: auto;
+                        flex: none;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px 15px;
+                        background: rgba(255, 255, 255, 0.95);
+                        border-radius: 15px;
+                        margin: 20px 10px 10px 10px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+                        backdrop-filter: blur(10px);
+                    }
+
+                    #mojo-content .test-button {
+                        font-size: 12px;
+                        padding: 5px 10px;
+                        background: #f39c12;
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        transition: background 0.3s ease;
+                    }
+
+                    #mojo-content .test-button:hover { background: #e67e22; }
+                    #mojo-content .test-button.hidden { display: none; }
+
+                    #mojo-content .right-buttons { display: flex; gap: 10px; }
+
+                    #mojo-content .return-button {
+                        font-size: 12px;
+                        padding: 5px 10px;
+                        background: #3498db;
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        transition: background 0.3s ease;
+                    }
+
+                    #mojo-content .return-button:hover { background: #2980b9; }
+
+                    #mojo-content .level-info {
+                        font-size: 14px;
+                        font-weight: bold;
+                        color: #333;
+                    }
+
+                    #mojo-content .score-container {
+                        flex: 1;
+                        margin: 0 15px;
+                        text-align: center;
+                    }
+
+                    #mojo-content .score-display {
+                        font-size: 18px;
+                        font-weight: bold;
+                        color: #e74c3c;
+                    }
+
+                    #mojo-content .progress-bar {
+                        width: 100%;
+                        height: 8px;
+                        background: #ddd;
+                        border-radius: 4px;
+                        margin-top: 5px;
+                        overflow: hidden;
+                    }
+
+                    #mojo-content .progress-fill {
+                        height: 100%;
+                        background: linear-gradient(90deg, #f39c12, #e74c3c);
+                        border-radius: 4px;
+                        transition: width 0.3s ease;
+                    }
+
+                    #mojo-content .game-board {
+                        display: grid;
+                        grid-template-columns: repeat(7, 1fr);
+                        grid-template-rows: repeat(10, 1fr);
+                        gap: 2px;
+                        padding: 5px;
+                        background: rgba(255, 255, 255, 0.3);
+                        border-radius: 15px;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                        aspect-ratio: 7 / 10;
+                        width: 100%;
+                        max-width: 400px;
+                        margin: auto;
+                    }
+
+                    #mojo-content .cell {
+                        background-color: #a1c5cb;
+                        border: 2px solid white;
+                        border-radius: 8px;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        cursor: pointer;
+                        transition: transform 0.1s ease;
+                        position: relative;
+                        will-change: transform;
+                    }
+
+                    #mojo-content .cell:hover { transform: scale(1.05); }
+                    #mojo-content .cell:active { transform: scale(0.98); transition: transform 0.05s ease; }
+                    #mojo-content .cell.dragging { transform: scale(1.1); z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+                    @media (hover: none) and (pointer: coarse) {
+                        #mojo-content .cell:hover { transform: none; }
+                        #mojo-content .cell:active { transform: scale(0.95); background-color: #95b8be; }
+                    }
+
+                    #mojo-content .cell.swap-target {
+                        border: 3px solid #f39c12;
+                        box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+                    }
+
+                    #mojo-content .animal {
+                        width: 80%;
+                        height: 80%;
+                        background-size: contain;
+                        background-repeat: no-repeat;
+                        background-position: center;
+                        transition: all 0.2s ease;
+                    }
+
+                    #mojo-content .prop {
+                        position: absolute;
+                        width: 100%;
+                        height: 100%;
+                        background-size: contain;
+                        background-repeat: no-repeat;
+                        background-position: center;
+                        animation: pulse 1s infinite;
+                    }
+
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.1); }
+                    }
+
+                    #mojo-content .button-area {
+                        height: auto;
+                        flex: none;
+                        width: calc(100% - 20px);
+                        margin: 0 auto 10px auto;
+                        display: flex;
+                        justify-content: space-around;
+                        align-items: center;
+                        padding: 10px;
+                        background: linear-gradient(180deg, #2c3e50, #34495e);
+                        border-radius: 15px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                    }
+
+                    #mojo-content .spacer-area {
+                        height: 0.675vh;
+                        width: calc(100% - 20px);
+                        margin: 0 auto;
+                        background: transparent;
+                    }
+
+                    #mojo-content .game-button {
+                        width: 55px;
+                        height: 55px;
+                        border-radius: 50%;
+                        border: none;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                        position: relative;
+                    }
+
+                    #mojo-content .game-button:hover { transform: scale(1.1); }
+                    #mojo-content .game-button:active { transform: scale(0.95); }
+                    #mojo-content .game-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+                    #mojo-content .game-button::after {
+                        content: attr(data-count);
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                        background: #e74c3c;
+                        color: white;
+                        font-size: 12px;
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 50%;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+
+                    #mojo-content .btn-red { background: url('assets/mojo/btn_red.png') center/cover no-repeat; }
+                    #mojo-content .btn-yellow { background: url('assets/mojo/btn_yellow.png') center/cover no-repeat; }
+                    #mojo-content .btn-green { background: url('assets/mojo/btn_green.png') center/cover no-repeat; }
+                    #mojo-content .btn-blue { background: url('assets/mojo/btn_blue.png') center/cover no-repeat; }
+                    #mojo-content .btn-pink { background: url('assets/mojo/btn_pink.png') center/cover no-repeat; }
+
+                    #mojo-content .eliminate-animation { animation: eliminate 0.3s ease-out forwards; }
+
+                    @keyframes eliminate {
+                        0% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(1.3); opacity: 0.5; }
+                        100% { transform: scale(0); opacity: 0; }
+                    }
+
+                    #mojo-content .drop-animation { animation: drop 0.3s ease-out; }
+
+                    @keyframes drop {
+                        from { transform: translateY(-50px); opacity: 0; }
+                        to { transform: translateY(0); opacity: 1; }
+                    }
+
+                    #mojo-content .modal {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.7);
+                        display: none;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 1000;
+                    }
+
+                    #mojo-content .modal.show { display: flex; }
+
+                    #mojo-content .modal-content {
+                        background: url('assets/mojo/congratulations.png') center/cover no-repeat;
+                        width: 80%;
+                        height: 60%;
+                        max-width: 400px;
+                        border-radius: 20px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                        padding: 20px;
+                    }
+
+                    #mojo-content .modal-btn {
+                        margin-top: 20px;
+                        padding: 15px 40px;
+                        font-size: 18px;
+                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        color: white;
+                        border: none;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    }
+
+                    #mojo-content .modal-btn:hover {
+                        transform: scale(1.05);
+                        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
+                    }
+
+                    #mojo-content .start-modal .modal-content {
+                        background: linear-gradient(135deg, #667eea, #764ba2);
+                        color: white;
+                    }
+
+                    #mojo-content .start-modal h1 {
+                        font-size: 32px;
+                        margin-bottom: 20px;
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                    }
+
+                    #mojo-content .combo-display {
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        font-size: 48px;
+                        font-weight: bold;
+                        color: #f39c12;
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+                        pointer-events: none;
+                        opacity: 0;
+                        z-index: 500;
+                    }
+
+                    #mojo-content .combo-display.show { animation: comboAnim 1s ease-out; }
+
+                    @keyframes comboAnim {
+                        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+                        50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+                        100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+                    }
+
+                    #mojo-content .shake-animation { animation: shake 2s ease-in-out; }
+
+                    @keyframes shake {
+                        0%, 100% { transform: translate(0, 0); }
+                        10% { transform: translate(-10px, -10px); }
+                        20% { transform: translate(10px, 10px); }
+                        30% { transform: translate(-10px, 10px); }
+                        40% { transform: translate(10px, -10px); }
+                        50% { transform: translate(-5px, -5px); }
+                        60% { transform: translate(5px, 5px); }
+                        70% { transform: translate(-5px, 5px); }
+                        80% { transform: translate(5px, -5px); }
+                        90% { transform: translate(-3px, 3px); }
+                    }
+                </style>
+
+                <div class="game-body">
+                    <div class="game-container">
+                        <div class="top-bar">
+                            <div class="level-info">
+                                <div id="level-name">第1关</div>
+                                <div style="font-size: 12px; color: #666;">目标: <span id="target-score">329</span>分</div>
+                            </div>
+                            <div class="score-container">
+                                <div class="score-display">得分: <span id="current-score">0</span></div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="right-buttons">
+                                <button class="return-button" id="return-btn">返回奇迹宏宏</button>
+                                <button class="test-button" id="test-btn">测试模式: 关</button>
+                            </div>
+                        </div>
+
+                        <div class="game-area">
+                            <div class="game-board" id="game-board"></div>
+                        </div>
+
+                        <div class="button-area">
+                            <button class="game-button btn-red" id="btn-red" data-count="1" title="团长威严"></button>
+                            <button class="game-button btn-yellow" id="btn-yellow" data-count="1" title="玛甜甜凸槌"></button>
+                            <button class="game-button btn-green" id="btn-green" data-count="1" title="石爸福利"></button>
+                            <button class="game-button btn-blue" id="btn-blue" data-count="1" title="冠佑显灵"></button>
+                            <button class="game-button btn-pink" id="btn-pink" data-count="1" title="宏咪大破坏"></button>
+                        </div>
+
+                        <div class="spacer-area"></div>
+                    </div>
+
+                    <div class="modal start-modal show" id="start-modal">
+                        <div class="modal-content">
+                            <h1>Mojo消消乐</h1>
+                            <p>准备好了吗？</p>
+                            <button class="modal-btn" id="start-btn">开始游戏</button>
+                        </div>
+                    </div>
+
+                    <div class="modal" id="win-modal">
+                        <div class="modal-content">
+                            <h2 style="color: #f39c12; font-size: 28px; margin-bottom: 10px;">恭喜过关！</h2>
+                            <p>当前得分: <span id="final-score">0</span></p>
+                            <button class="modal-btn" id="next-level-btn">下一关</button>
+                        </div>
+                    </div>
+
+                    <div class="combo-display" id="combo-display"></div>
+
+                    <script>
+                        (function() {
+                            // 游戏配置
+                            const CONFIG = {
+                                GRID_ROWS: 10,
+                                GRID_COLS: 7,
+                                ANIMAL_COUNT: 10,
+                                TOTAL_LEVELS: 80,
+                                BASE_TARGET_SCORE: 329,
+                                SCORE_PER_LEVEL: 525,
+                                ANIMATION_DURATION: 300,
+                                showTestButton: true
+                            };
+
+                            // 游戏状态
+                            let gameState = {
+                                level: 1,
+                                score: 0,
+                                targetScore: CONFIG.BASE_TARGET_SCORE,
+                                grid: [],
+                                buttonsUsed: { red: false, yellow: false, green: false, blue: false, pink: false },
+                                isAnimating: false,
+                                comboCount: 0,
+                                draggedCell: null,
+                                skillUsed: false,
+                                testModeEnabled: false
+                            };
+
+                            // DOM元素
+                            const gameBoard = document.getElementById('game-board');
+                            const currentScoreEl = document.getElementById('current-score');
+                            const targetScoreEl = document.getElementById('target-score');
+                            const levelNameEl = document.getElementById('level-name');
+                            const progressFill = document.getElementById('progress-fill');
+                            const startModal = document.getElementById('start-modal');
+                            const winModal = document.getElementById('win-modal');
+                            const comboDisplay = document.getElementById('combo-display');
+
+                            function initGame() {
+                                setupEventListeners();
+                                setupMobileOptimizations();
+                                if (!CONFIG.showTestButton) {
+                                    document.getElementById('test-btn').classList.add('hidden');
+                                }
+                                loadLevel(gameState.level);
+                            }
+
+                            function setupMobileOptimizations() {
+                                document.addEventListener('touchmove', (e) => {
+                                    if (e.target.closest('.game-board')) e.preventDefault();
+                                }, { passive: false });
+                                document.addEventListener('touchstart', (e) => {
+                                    if (e.target.closest('.game-board')) e.preventDefault();
+                                }, { passive: false });
+                                if ('vibrate' in navigator) {
+                                    window.vibrate = (pattern) => navigator.vibrate(pattern);
+                                } else {
+                                    window.vibrate = () => {};
+                                }
+                            }
+
+                            function closeMojo() {
+                                document.getElementById('mojo-overlay').style.display = 'none';
+                            }
+
+                            function setupEventListeners() {
+                                document.getElementById('start-btn').addEventListener('click', startGame);
+                                document.getElementById('next-level-btn').addEventListener('click', nextLevel);
+                                document.getElementById('btn-red').addEventListener('click', () => useButton('red'));
+                                document.getElementById('btn-yellow').addEventListener('click', () => useButton('yellow'));
+                                document.getElementById('btn-green').addEventListener('click', () => useButton('green'));
+                                document.getElementById('btn-blue').addEventListener('click', () => useButton('blue'));
+                                document.getElementById('btn-pink').addEventListener('click', () => useButton('pink'));
+                                document.getElementById('test-btn').addEventListener('click', toggleTestMode);
+                                document.getElementById('return-btn').addEventListener('click', closeMojo);
+                            }
+
+                            function startGame() {
+                                startModal.classList.remove('show');
+                                gameState.score = 0;
+                                gameState.comboCount = 0;
+                                updateUI();
+                            }
+
+                            function loadLevel(level) {
+                                gameState.level = level;
+                                gameState.targetScore = CONFIG.BASE_TARGET_SCORE + (level - 1) * CONFIG.SCORE_PER_LEVEL;
+                                gameState.score = 0;
+                                gameState.comboCount = 0;
+                                gameState.testModeEnabled = false;
+                                gameState.buttonsUsed = { red: false, yellow: false, green: false, blue: false, pink: false };
+                                levelNameEl.textContent = `第${level}关`;
+                                updateUI();
+                                resetButtons();
+                                updateTestButton();
+                                generateGrid();
+                                renderGrid();
+                            }
+
+                            function generateGrid() {
+                                gameState.grid = [];
+                                for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                    gameState.grid[row] = [];
+                                    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                        gameState.grid[row][col] = { animal: getRandomAnimal(), prop: null };
+                                    }
+                                }
+                                while (findMatches().length > 0) generateGrid();
+                            }
+
+                            function getRandomAnimal() {
+                                return Math.floor(Math.random() * CONFIG.ANIMAL_COUNT);
+                            }
+
+                            function renderGrid() {
+                                gameBoard.innerHTML = '';
+                                for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                        const cell = document.createElement('div');
+                                        cell.className = 'cell';
+                                        cell.dataset.row = row;
+                                        cell.dataset.col = col;
+                                        const cellData = gameState.grid[row][col];
+                                        if (cellData.animal !== null) {
+                                            const animal = document.createElement('div');
+                                            animal.className = 'animal';
+                                            animal.style.backgroundImage = `url('assets/mojo/animal${cellData.animal}.png')`;
+                                            cell.appendChild(animal);
+                                        }
+                                        if (cellData.prop) {
+                                            const prop = document.createElement('div');
+                                            prop.className = 'prop';
+                                            prop.style.backgroundImage = `url('assets/mojo/${cellData.prop}.png')`;
+                                            cell.appendChild(prop);
+                                            prop.addEventListener('click', (e) => { e.stopPropagation(); useProp(row, col, cellData.prop); });
+                                            prop.addEventListener('touchstart', (e) => { e.stopPropagation(); useProp(row, col, cellData.prop); });
+                                        }
+                                        cell.addEventListener('dragstart', handleDragStart);
+                                        cell.addEventListener('dragend', handleDragEnd);
+                                        cell.addEventListener('dragover', handleDragOver);
+                                        cell.addEventListener('drop', handleDrop);
+                                        cell.addEventListener('touchstart', handleTouchStart, { passive: false });
+                                        cell.addEventListener('touchmove', handleTouchMove, { passive: false });
+                                        cell.addEventListener('touchend', handleTouchEnd);
+                                        gameBoard.appendChild(cell);
+                                    }
+                                }
+                            }
+
+                            let touchStartCell = null;
+                            let highlightedCell = null;
+
+                            function handleDragStart(e) {
+                                gameState.draggedCell = e.target.closest('.cell');
+                                gameState.draggedCell.classList.add('dragging');
+                                e.dataTransfer.effectAllowed = 'move';
+                            }
+
+                            function handleDragEnd(e) {
+                                if (gameState.draggedCell) {
+                                    gameState.draggedCell.classList.remove('dragging');
+                                    gameState.draggedCell = null;
+                                }
+                            }
+
+                            function handleDragOver(e) {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                            }
+
+                            function handleDrop(e) {
+                                e.preventDefault();
+                                const targetCell = e.target.closest('.cell');
+                                if (gameState.draggedCell && targetCell && gameState.draggedCell !== targetCell) {
+                                    swapAnimals(gameState.draggedCell, targetCell);
+                                }
+                            }
+
+                            function handleTouchStart(e) {
+                                e.preventDefault();
+                                touchStartCell = e.target.closest('.cell');
+                                touchStartCell.classList.add('dragging');
+                                highlightedCell = null;
+                            }
+
+                            function handleTouchMove(e) {
+                                e.preventDefault();
+                                if (!touchStartCell) return;
+                                const touch = e.touches[0];
+                                const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                                const targetCell = targetElement ? targetElement.closest('.cell') : null;
+                                if (highlightedCell && highlightedCell !== touchStartCell) {
+                                    highlightedCell.classList.remove('swap-target');
+                                }
+                                if (targetCell && targetCell !== touchStartCell) {
+                                    const row1 = parseInt(touchStartCell.dataset.row);
+                                    const col1 = parseInt(touchStartCell.dataset.col);
+                                    const row2 = parseInt(targetCell.dataset.row);
+                                    const col2 = parseInt(targetCell.dataset.col);
+                                    const isAdjacent = (Math.abs(row1 - row2) === 1 && col1 === col2) || (Math.abs(col1 - col2) === 1 && row1 === row2);
+                                    if (isAdjacent) {
+                                        targetCell.classList.add('swap-target');
+                                        highlightedCell = targetCell;
+                                    } else {
+                                        highlightedCell = null;
+                                    }
+                                } else {
+                                    highlightedCell = null;
+                                }
+                            }
+
+                            function handleTouchEnd(e) {
+                                if (touchStartCell) {
+                                    if (highlightedCell) highlightedCell.classList.remove('swap-target');
+                                    if (highlightedCell) {
+                                        swapAnimals(touchStartCell, highlightedCell);
+                                    } else {
+                                        const touch = e.changedTouches[0];
+                                        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                                        const targetCell = targetElement ? targetElement.closest('.cell') : null;
+                                        if (targetCell && touchStartCell !== targetCell) {
+                                            swapAnimals(touchStartCell, targetCell);
+                                        }
+                                    }
+                                    touchStartCell.classList.remove('dragging');
+                                    touchStartCell = null;
+                                    highlightedCell = null;
+                                }
+                            }
+
+                            function swapAnimals(cell1, cell2) {
+                                if (gameState.isAnimating) return;
+                                const row1 = parseInt(cell1.dataset.row);
+                                const col1 = parseInt(cell1.dataset.col);
+                                const row2 = parseInt(cell2.dataset.row);
+                                const col2 = parseInt(cell2.dataset.col);
+                                const isAdjacent = (Math.abs(row1 - row2) === 1 && col1 === col2) || (Math.abs(col1 - col2) === 1 && row1 === row2);
+                                if (!isAdjacent) return;
+                                const temp = gameState.grid[row1][col1];
+                                gameState.grid[row1][col1] = gameState.grid[row2][col2];
+                                gameState.grid[row2][col2] = temp;
+                                renderGrid();
+                                setTimeout(() => {
+                                    const matches = findMatches();
+                                    if (matches.length > 0) {
+                                        gameState.comboCount = 0;
+                                        vibrate([50]);
+                                        processMatches();
+                                    } else if (gameState.testModeEnabled) {
+                                        vibrate([30]);
+                                    } else {
+                                        vibrate([100, 50, 100]);
+                                        const temp = gameState.grid[row1][col1];
+                                        gameState.grid[row1][col1] = gameState.grid[row2][col2];
+                                        gameState.grid[row2][col2] = temp;
+                                        renderGrid();
+                                        setTimeout(() => {
+                                            if (!hasPossibleMoves()) resetGrid();
+                                        }, CONFIG.ANIMATION_DURATION);
+                                    }
+                                }, CONFIG.ANIMATION_DURATION);
+                            }
+
+                            function hasPossibleMoves() {
+                                for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                        if (col < CONFIG.GRID_COLS - 1) {
+                                            let temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row][col + 1];
+                                            gameState.grid[row][col + 1] = temp;
+                                            if (findMatches().length > 0) {
+                                                gameState.grid[row][col + 1] = gameState.grid[row][col];
+                                                gameState.grid[row][col] = temp;
+                                                return true;
+                                            }
+                                            gameState.grid[row][col + 1] = gameState.grid[row][col];
+                                            gameState.grid[row][col] = temp;
+                                        }
+                                        if (row < CONFIG.GRID_ROWS - 1) {
+                                            let temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row + 1][col];
+                                            gameState.grid[row + 1][col] = temp;
+                                            if (findMatches().length > 0) {
+                                                gameState.grid[row + 1][col] = gameState.grid[row][col];
+                                                gameState.grid[row][col] = temp;
+                                                return true;
+                                            }
+                                            gameState.grid[row + 1][col] = gameState.grid[row][col];
+                                            gameState.grid[row][col] = temp;
+                                        }
+                                    }
+                                }
+                                return false;
+                            }
+
+                            function resetGrid() {
+                                generateGrid();
+                                renderGrid();
+                            }
+
+                            function findMatches() {
+                                const matches = [];
+                                const checked = new Set();
+                                for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                    for (let col = 0; col < CONFIG.GRID_COLS - 2; col++) {
+                                        const animal = gameState.grid[row][col].animal;
+                                        if (animal !== null && gameState.grid[row][col + 1].animal === animal && gameState.grid[row][col + 2].animal === animal) {
+                                            let length = 3;
+                                            while (col + length < CONFIG.GRID_COLS && gameState.grid[row][col + length].animal === animal) length++;
+                                            for (let i = 0; i < length; i++) {
+                                                const key = `${row},${col + i}`;
+                                                if (!checked.has(key)) {
+                                                    checked.add(key);
+                                                    matches.push({ row, col: col + i, length });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                    for (let row = 0; row < CONFIG.GRID_ROWS - 2; row++) {
+                                        const animal = gameState.grid[row][col].animal;
+                                        if (animal !== null && gameState.grid[row + 1][col].animal === animal && gameState.grid[row + 2][col].animal === animal) {
+                                            let length = 3;
+                                            while (row + length < CONFIG.GRID_ROWS && gameState.grid[row + length][col].animal === animal) length++;
+                                            for (let i = 0; i < length; i++) {
+                                                const key = `${row + i},${col}`;
+                                                if (!checked.has(key)) {
+                                                    checked.add(key);
+                                                    matches.push({ row: row + i, col, length });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                return matches;
+                            }
+
+                            function playSound(soundFile) {
+                                const audio = new Audio(`assets/mojo/${soundFile}`);
+                                audio.play().catch(e => console.log('Audio play failed:', e));
+                            }
+
+                            function processMatches() {
+                                gameState.isAnimating = true;
+                                const matches = findMatches();
+                                if (matches.length === 0) {
+                                    gameState.isAnimating = false;
+                                    checkWinCondition();
+                                    return;
+                                }
+                                gameState.comboCount++;
+                                showCombo();
+                                const eliminatedCount = new Set(matches.map(m => `${m.row},${m.col}`)).size;
+                                const baseScore = eliminatedCount * 10;
+                                const comboBonus = gameState.comboCount > 1 ? gameState.comboCount : 1;
+                                gameState.score += baseScore * comboBonus;
+                                updateUI();
+                                checkWinCondition();
+                                playSound('clear.mp3');
+                                matches.forEach(match => {
+                                    const cell = document.querySelector(`.cell[data-row="${match.row}"][data-col="${match.col}"]`);
+                                    if (cell) cell.classList.add('eliminate-animation');
+                                });
+                                setTimeout(() => {
+                                    fillEliminatedCells(matches);
+                                    gameState.isAnimating = false;
+                                    setTimeout(() => {
+                                        const newMatches = findMatches();
+                                        if (newMatches.length > 0) processMatches();
+                                    }, CONFIG.ANIMATION_DURATION);
+                                }, CONFIG.ANIMATION_DURATION);
+                            }
+
+                            function fillEliminatedCells(matches) {
+                                const eliminatedPositions = new Set(matches.map(m => `${m.row},${m.col}`));
+                                const propPositions = new Set();
+                                const processedMatches = new Set();
+                                matches.forEach(match => {
+                                    const key = `${match.row},${match.col}`;
+                                    if (processedMatches.has(key)) return;
+                                    if (match.length >= 5) {
+                                        const matchPositions = [];
+                                        matches.forEach(m => {
+                                            if (m.length === match.length && m.row === match.row && m.col >= match.col && m.col < match.col + match.length) {
+                                                matchPositions.push({ row: m.row, col: m.col });
+                                            } else if (m.length === match.length && m.col === match.col && m.row >= match.row && m.row < match.row + match.length) {
+                                                matchPositions.push({ row: m.row, col: m.col });
+                                            }
+                                        });
+                                        const randomIndex = Math.floor(Math.random() * matchPositions.length);
+                                        const propPos = matchPositions[randomIndex];
+                                        gameState.grid[propPos.row][propPos.col].prop = 'prop_magic';
+                                        gameState.grid[propPos.row][propPos.col].animal = null;
+                                        eliminatedPositions.delete(`${propPos.row},${propPos.col}`);
+                                        propPositions.add(`${propPos.row},${propPos.col}`);
+                                        matchPositions.forEach(pos => processedMatches.add(`${pos.row},${pos.col}`));
+                                    } else if (match.length === 4 && !isInCombination(match)) {
+                                        const matchPositions = [];
+                                        matches.forEach(m => {
+                                            if (m.length === 4 && m.row === match.row && m.col >= match.col && m.col < match.col + 4) {
+                                                matchPositions.push({ row: m.row, col: m.col });
+                                            } else if (m.length === 4 && m.col === match.col && m.row >= match.row && m.row < match.row + 4) {
+                                                matchPositions.push({ row: m.row, col: m.col });
+                                            }
+                                        });
+                                        const isHorizontal = matchPositions.every(pos => pos.row === matchPositions[0].row);
+                                        const propPos = matchPositions[0];
+                                        gameState.grid[propPos.row][propPos.col].prop = isHorizontal ? 'prop_h' : 'prop_v';
+                                        gameState.grid[propPos.row][propPos.col].animal = null;
+                                        eliminatedPositions.delete(`${propPos.row},${propPos.col}`);
+                                        propPositions.add(`${propPos.row},${propPos.col}`);
+                                        matchPositions.forEach(pos => processedMatches.add(`${pos.row},${pos.col}`));
+                                    }
+                                });
+                                eliminatedPositions.forEach(pos => {
+                                    const [row, col] = pos.split(',').map(Number);
+                                    gameState.grid[row][col] = { animal: null, prop: null };
+                                });
+                                dropAnimalsWithGravity(propPositions);
+                            }
+
+                            function dropAnimalsWithGravity(propPositions) {
+                                let hasChanges = true;
+                                const dropStep = () => {
+                                    if (!hasChanges) {
+                                        setTimeout(() => fillTopBlanks(propPositions), CONFIG.ANIMATION_DURATION);
+                                        return;
+                                    }
+                                    hasChanges = false;
+                                    const movedPositions = new Set();
+                                    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                        for (let row = CONFIG.GRID_ROWS - 1; row >= 0; row--) {
+                                            if (propPositions.has(`${row},${col}`)) continue;
+                                            if (gameState.grid[row][col].animal === null) {
+                                                let sourceRow = row - 1;
+                                                while (sourceRow >= 0 && (gameState.grid[sourceRow][col].animal === null || propPositions.has(`${sourceRow},${col}`))) sourceRow--;
+                                                if (sourceRow >= 0) {
+                                                    gameState.grid[row][col] = gameState.grid[sourceRow][col];
+                                                    gameState.grid[sourceRow][col] = { animal: null, prop: null };
+                                                    hasChanges = true;
+                                                    movedPositions.add(`${row},${col}`);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (hasChanges) {
+                                        renderGrid();
+                                        movedPositions.forEach(pos => {
+                                            const [row, col] = pos.split(',').map(Number);
+                                            const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                                            if (cell) cell.classList.add('drop-animation');
+                                        });
+                                        setTimeout(dropStep, CONFIG.ANIMATION_DURATION / 2);
+                                    } else {
+                                        setTimeout(() => fillTopBlanks(propPositions), CONFIG.ANIMATION_DURATION);
+                                    }
+                                };
+                                dropStep();
+                            }
+
+                            function fillTopBlanks(propPositions) {
+                                const positionsToAnimate = new Set();
+                                for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                    for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                        if (gameState.grid[row][col].animal === null && !propPositions.has(`${row},${col}`)) {
+                                            gameState.grid[row][col] = { animal: getRandomAnimal(), prop: null };
+                                            positionsToAnimate.add(`${row},${col}`);
+                                        }
+                                    }
+                                }
+                                renderGrid();
+                                positionsToAnimate.forEach(pos => {
+                                    const [row, col] = pos.split(',').map(Number);
+                                    const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                                    if (cell) cell.classList.add('drop-animation');
+                                });
+                            }
+
+                            function isInCombination(match) { return false; }
+
+                            function useProp(row, col, propType) {
+                                if (gameState.isAnimating) return;
+                                gameState.skillUsed = true;
+                                const positionsToEliminate = [];
+                                switch (propType) {
+                                    case 'prop_v':
+                                        for (let r = 0; r < CONFIG.GRID_ROWS; r++) positionsToEliminate.push({ row: r, col });
+                                        break;
+                                    case 'prop_h':
+                                        for (let c = 0; c < CONFIG.GRID_COLS; c++) positionsToEliminate.push({ row, col: c });
+                                        break;
+                                    case 'prop_bomb':
+                                        for (let r = row - 1; r <= row + 1; r++) {
+                                            for (let c = col - 1; c <= col + 1; c++) {
+                                                if (r >= 0 && r < CONFIG.GRID_ROWS && c >= 0 && c < CONFIG.GRID_COLS) {
+                                                    positionsToEliminate.push({ row: r, col: c });
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    case 'prop_magic':
+                                        for (let r = 0; r < CONFIG.GRID_ROWS; r++) {
+                                            for (let c = 0; c < CONFIG.GRID_COLS; c++) {
+                                                positionsToEliminate.push({ row: r, col: c });
+                                            }
+                                        }
+                                        break;
+                                }
+                                gameState.comboCount++;
+                                const baseScore = positionsToEliminate.length * 10;
+                                const comboBonus = gameState.comboCount > 1 ? gameState.comboCount : 1;
+                                gameState.score += baseScore * comboBonus;
+                                updateUI();
+                                playSound('clear.mp3');
+                                positionsToEliminate.forEach(pos => {
+                                    const cell = document.querySelector(`.cell[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                                    if (cell) cell.classList.add('eliminate-animation');
+                                });
+                                setTimeout(() => {
+                                    setTimeout(() => {
+                                        positionsToEliminate.forEach(pos => {
+                                            gameState.grid[pos.row][pos.col] = { animal: getRandomAnimal(), prop: null };
+                                        });
+                                        renderGrid();
+                                        setTimeout(() => {
+                                            const newMatches = findMatches();
+                                            if (newMatches.length > 0) processMatches();
+                                        }, CONFIG.ANIMATION_DURATION);
+                                    }, CONFIG.ANIMATION_DURATION / 2);
+                                }, CONFIG.ANIMATION_DURATION);
+                            }
+
+                            function useButton(buttonType) {
+                                if (gameState.buttonsUsed[buttonType] || gameState.isAnimating) return;
+                                gameState.buttonsUsed[buttonType] = true;
+                                document.getElementById(`btn-${buttonType}`).disabled = true;
+                                gameState.comboCount++;
+                                let positionsToEliminate = [];
+                                switch (buttonType) {
+                                    case 'red':
+                                        const rows = getRandomIndices(CONFIG.GRID_ROWS, 3);
+                                        rows.forEach(row => { for (let c = 0; c < CONFIG.GRID_COLS; c++) positionsToEliminate.push({ row, col: c }); });
+                                        break;
+                                    case 'yellow':
+                                        const cols = getRandomIndices(CONFIG.GRID_COLS, 3);
+                                        cols.forEach(col => { for (let r = 0; r < CONFIG.GRID_ROWS; r++) positionsToEliminate.push({ row: r, col }); });
+                                        break;
+                                    case 'green':
+                                        const centerRow = Math.floor(CONFIG.GRID_ROWS / 2);
+                                        const centerCol = Math.floor(CONFIG.GRID_COLS / 2);
+                                        for (let r = centerRow - 2; r <= centerRow + 2; r++) {
+                                            for (let c = centerCol - 2; c <= centerCol + 2; c++) {
+                                                if (r >= 0 && r < CONFIG.GRID_ROWS && c >= 0 && c < CONFIG.GRID_COLS) {
+                                                    positionsToEliminate.push({ row: r, col: c });
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    case 'blue':
+                                        gameState.score += 500;
+                                        updateUI();
+                                        checkWinCondition();
+                                        playSound('ming.mp3');
+                                        return;
+                                    case 'pink':
+                                        playShakeAnimation();
+                                        playSound('ashin.mp3');
+                                        return;
+                                }
+                                const baseScore = positionsToEliminate.length * 10;
+                                const comboBonus = gameState.comboCount > 1 ? gameState.comboCount : 1;
+                                gameState.score += baseScore * comboBonus;
+                                updateUI();
+                                checkWinCondition(); // 立即检查胜利条件
+                                const soundMap = { red: 'monster.mp3', yellow: 'masa.mp3', green: 'stone.mp3', blue: 'ming.mp3', pink: 'ashin.mp3' };
+                                playSound(soundMap[buttonType]);
+                                positionsToEliminate.forEach(pos => {
+                                    const cell = document.querySelector(`.cell[data-row="${pos.row}"][data-col="${pos.col}"]`);
+                                    if (cell) cell.classList.add('eliminate-animation');
+                                });
+                                setTimeout(() => {
+                                    positionsToEliminate.forEach(pos => {
+                                        gameState.grid[pos.row][pos.col] = { animal: getRandomAnimal(), prop: null };
+                                    });
+                                    renderGrid();
+                                    setTimeout(() => {
+                                        const newMatches = findMatches();
+                                        if (newMatches.length > 0) processMatches();
+                                    }, CONFIG.ANIMATION_DURATION);
+                                }, CONFIG.ANIMATION_DURATION);
+                            }
+
+                            function getRandomIndices(max, count) {
+                                const indices = [];
+                                while (indices.length < count) {
+                                    const idx = Math.floor(Math.random() * max);
+                                    if (!indices.includes(idx)) indices.push(idx);
+                                }
+                                return indices;
+                            }
+
+                            function playShakeAnimation() {
+                                const cells = document.querySelectorAll('.cell');
+                                cells.forEach(cell => cell.classList.add('shake-animation'));
+                                setTimeout(() => {
+                                    for (let r = 0; r < CONFIG.GRID_ROWS; r++) {
+                                        for (let c = 0; c < CONFIG.GRID_COLS; c++) {
+                                            gameState.grid[r][c].animal = getRandomAnimal();
+                                        }
+                                    }
+                                    cells.forEach(cell => cell.classList.remove('shake-animation'));
+                                    renderGrid();
+                                    setTimeout(() => {
+                                        const newMatches = findMatches();
+                                        if (newMatches.length > 0) processMatches();
+                                    }, CONFIG.ANIMATION_DURATION);
+                                    checkWinCondition();
+                                }, 2000);
+                            }
+
+                            function showCombo() {
+                                if (gameState.comboCount > 1) {
+                                    comboDisplay.textContent = `${gameState.comboCount}连消!`;
+                                    comboDisplay.classList.add('show');
+                                    setTimeout(() => comboDisplay.classList.remove('show'), 1000);
+                                }
+                            }
+
+                            function resetButtons() {
+                                ['red', 'yellow', 'green', 'blue', 'pink'].forEach(btn => {
+                                    const button = document.getElementById(`btn-${btn}`);
+                                    button.disabled = false;
+                                });
+                            }
+
+                            function updateUI() {
+                                currentScoreEl.textContent = gameState.score;
+                                targetScoreEl.textContent = gameState.targetScore;
+                                const progress = Math.min((gameState.score / gameState.targetScore) * 100, 100);
+                                progressFill.style.width = `${progress}%`;
+                            }
+
+                            function checkWinCondition() {
+                                if (gameState.score >= gameState.targetScore) {
+                                    document.getElementById('final-score').textContent = gameState.score;
+                                    winModal.classList.add('show');
+                                    playSound('cong.mp3');
+                                }
+                            }
+
+                            function updateTestButton() {
+                                if (!CONFIG.showTestButton) return;
+                                const btn = document.getElementById('test-btn');
+                                btn.textContent = gameState.testModeEnabled ? '测试模式: 开' : '测试模式: 关';
+                                btn.style.background = gameState.testModeEnabled ? '#e74c3c' : '#f39c12';
+                            }
+
+                            function toggleTestMode() {
+                                gameState.testModeEnabled = !gameState.testModeEnabled;
+                                updateTestButton();
+                            }
+
+                            function nextLevel() {
+                                winModal.classList.remove('show');
+                                if (gameState.level < CONFIG.TOTAL_LEVELS) {
+                                    loadLevel(gameState.level + 1);
+                                } else {
+                                    alert('恭喜你通关了所有关卡！');
+                                    loadLevel(1);
+                                }
+                            }
+
+                            console.log('Mojo game script loaded');
+                            
+                            // 调试：检查元素尺寸
+                            setTimeout(() => {
+                                const gameBoardEl = document.getElementById('game-board');
+                                const gameAreaEl = document.querySelector('.game-area');
+                                const gameContainerEl = document.querySelector('.game-container');
+                                const gameBodyEl = document.querySelector('.game-body');
+                                const mojoContentEl = document.getElementById('mojo-content');
+                                
+                                console.log('mojo-content dimensions:', mojoContentEl?.offsetWidth, 'x', mojoContentEl?.offsetHeight);
+                                console.log('game-body dimensions:', gameBodyEl?.offsetWidth, 'x', gameBodyEl?.offsetHeight);
+                                console.log('game-container dimensions:', gameContainerEl?.offsetWidth, 'x', gameContainerEl?.offsetHeight);
+                                console.log('game-area dimensions:', gameAreaEl?.offsetWidth, 'x', gameAreaEl?.offsetHeight);
+                                console.log('game-board dimensions:', gameBoardEl?.offsetWidth, 'x', gameBoardEl?.offsetHeight);
+                                console.log('game-board children count:', gameBoardEl?.children.length);
+                                
+                                // 确保尺寸正确
+                                if (mojoContentEl && mojoContentEl.offsetHeight === 0) {
+                                    mojoContentEl.style.height = '100vh';
+                                }
+                                if (gameBodyEl && gameBodyEl.offsetHeight === 0) {
+                                    gameBodyEl.style.height = '100vh';
+                                }
+                                if (gameContainerEl && gameContainerEl.offsetHeight === 0) {
+                                    gameContainerEl.style.height = '100vh';
+                                }
+                            }, 50);
+                            
+                            initGame();
+                        })();
+                    </script>
+                </div>
+                <!-- Mojo游戏内容结束 -->
+            </div>
+        </div>
+
+        <div class="footer-stats" id="stats">Styled by 第 loading... 位 奇迹宏宏搭配师</div>
+        
+        <button class="mojo-btn" onclick="openMojo()">去玩MOJO消消乐Beta版</button>
+        <button class="random-btn" onclick="randomOutfit()">让宏宏决定</button>
+    </div>
+</div>
+
+<script>
+    /* ================= 配置区域 ================= */
+    
+    const LAYER_RULES = [
+        { key: 'body', z: 0 },
+        // 内层衣物（层级1-2）
+        { key: 'txu', z: 1 }, { key: 'shirt', z: 1 }, { key: 'knit', z: 1 }, { key: 'hoodie', z: 1 },
+        { key: 'med', z: 2 },
+        // 中层衣物（层级3-4）
+        { key: 'bottom', z: 3 },
+        { key: 'shoes', z: 4 },
+        // 外层衣物（层级5-6）
+        { key: 'tie', z: 5 },
+        { key: 'coat', z: 6 },
+        // 最外层配饰（层级7）
+        { key: 'acc', z: 7 },
+        { key: 'hand', z: 7 }
+    ];
+
+    const ASSET_DATABASE = [
+        "acc1001.png", "acc1002.png", "acc1003.png","acc1004.png",
+        "bottom1001.png", "bottom1002.png", "bottom1003.png","bottom1004.png", "bottom1005.png", "bottom1006.png", "bottom1007.png","bottom1008.png","bottom1009.png",
+        "coat1001-1.png", "coat1001-2.png",
+        "coat1002-1.png", "coat1002-2.png", "coat1013-1.png", "coat1013-2.png", "coat1014.png", "coat1015.png",  "coat1016.png", "coat1017.png","coat1018.png","coat1019.png",
+        "coat1003.png", "coat1004.png","coat1005.png", "coat1006.png", "coat1007-1.png", "coat1007-2.png", "coat1008-1.png", "coat1008-2.png", "coat1009.png","coat1010.png","coat1011.png","coat1012.png",
+        "hoodie1001.png","knit1001-1.png","med1001.png","med1002.png",
+        "tie1001-1.png","tie1001-2.png","tie1002-1.png","tie1002-2.png","tie1003-1.png","tie1003-2.png","tie1004.png","tie1005-1.png","tie1005-2.png",
+        "shirt1001.png","shirt1002.png","shirt1003.png","shirt1004.png","shirt1005.png","shirt1006.png","shirt1007.png",
+        "shoes1001.png","shoes1002.png","shoes1003.png", "txu1001-1.png","txu1001-2.png","txu1002-1.png","txu1003-1.png","txu1003-2.png",
+        "hand1001.png","hand1002.png","hand1003.png"
+    ];
+
+    const CONFIG = {
+        iconPath: "assets/icon/",
+        clothPath: "assets/clothing/",
+        idleTime: 60000
+    };
+
+    /* ================= 核心逻辑 ================= */
+
+    let currentOutfit = {};
+    let historyStack = [];
+    let currentSelection = null;
+    let layerOffsets = {};
+    let lastWornItem = null;
+    let idleTimer = null;
+    const MULTI_WEAR_CATEGORIES = ['配件'];
+
+    window.onload = function() {
+        renderWardrobe();
+        initStats();
+        resetIdleTimer();
+        document.body.onclick = resetIdleTimer;
+        setTimeout(adjustLayout, 100);
+        window.addEventListener('resize', adjustLayout);
+    };
+
+    // 打开MOJO消消乐全屏界面
+    window.openMojo = function() {
+        const overlay = document.getElementById('mojo-overlay');
+        const content = document.getElementById('mojo-content');
+        
+        overlay.style.display = 'block';
+        
+        // 强制设置高度
+        content.style.position = 'absolute';
+        content.style.top = '0';
+        content.style.left = '0';
+        content.style.width = '100%';
+        content.style.height = '100vh';
+        
+        // 延迟执行以确保布局已计算
+        setTimeout(() => {
+            const gameBoardEl = document.getElementById('game-board');
+            const gameAreaEl = document.querySelector('.game-area');
+            const gameContainerEl = document.querySelector('.game-container');
+            const gameBodyEl = document.querySelector('.game-body');
+            
+            console.log('=== Mojo Game Layout Debug ===');
+            console.log('content dimensions:', content.offsetWidth, 'x', content.offsetHeight);
+            console.log('game-body dimensions:', gameBodyEl?.offsetWidth, 'x', gameBodyEl?.offsetHeight);
+            console.log('game-container dimensions:', gameContainerEl?.offsetWidth, 'x', gameContainerEl?.offsetHeight);
+            console.log('game-area dimensions:', gameAreaEl?.offsetWidth, 'x', gameAreaEl?.offsetHeight);
+            console.log('game-board dimensions:', gameBoardEl?.offsetWidth, 'x', gameBoardEl?.offsetHeight);
+            console.log('game-board children count:', gameBoardEl?.children.length);
+        }, 200);
+    }
+
+    // 关闭MOJO消消乐全屏界面
+    window.closeMojo = function() {
+        document.getElementById('mojo-overlay').style.display = 'none';
+    }
+
+    // 调试日志
+    function logLayoutInfo() {
+        const screenWidth = window.innerWidth;
+        const sidebarWidth = document.querySelector('.sidebar')?.offsetWidth || 0;
+        const containerWidth = document.querySelector('.wardrobe-list')?.offsetWidth || 0;
+        console.log(`屏幕宽度: ${screenWidth}px, 侧边栏宽度: ${sidebarWidth}px, 容器宽度: ${containerWidth}px`);
+        const grids = document.querySelectorAll('.icon-grid');
+        grids.forEach(grid => {
+            const itemCount = grid.querySelectorAll('.item-icon').length;
+            const categoryName = grid.previousElementSibling?.querySelector('span')?.innerText || 'Unknown';
+            console.log(`分类 ${categoryName}: ${itemCount} 个物品`);
+        });
+    }
+
+    function adjustLayout() {
+        const sidebar = document.querySelector('.sidebar');
+        const wardrobeList = document.querySelector('.wardrobe-list');
+        if (!sidebar || !wardrobeList) return;
+        const sidebarWidth = sidebar.offsetWidth;
+        const containerPadding = 10;
+        const availableWidth = sidebarWidth - (containerPadding * 2);
+        const iconSize = Math.min(55, Math.max(38, (availableWidth - 40) / 5));
+        document.documentElement.style.setProperty('--item-icon-size', `${iconSize}px`);
+    }
+
+    function renderWardrobe() {
+        const container = document.getElementById('wardrobe-container');
+        if (!container) return;
+        const categories = {};
+        ASSET_DATABASE.forEach(filename => {
+            const category = getCategory(filename);
+            console.log(`文件: ${filename} -> 分类: ${category}`); // 调试日志
+            if (!categories[category]) categories[category] = [];
+            categories[category].push(filename);
+        });
+        console.log('检测到的分类:', Object.keys(categories)); // 调试日志
+        // 正确的顺序：上衣-中层-外套-下装-鞋子-配饰-配件-手持
+        const categoryOrder = ['上衣', '中层', '外套', '下装', '鞋子', '配饰', '配件', '手持'];
+        const sortedCategories = Object.keys(categories).sort((a, b) => {
+            const idxA = categoryOrder.indexOf(a);
+            const idxB = categoryOrder.indexOf(b);
+            return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        });
+        container.innerHTML = '';
+        sortedCategories.forEach(category => {
+            const title = document.createElement('div');
+            title.className = 'category-title';
+            title.innerHTML = `<span>${category}</span><span>▼</span>`;
+            title.onclick = () => {
+                const grid = title.nextElementSibling;
+                grid.classList.toggle('collapsed');
+                title.querySelector('span:last-child').textContent = grid.classList.contains('collapsed') ? '▶' : '▼';
+            };
+            container.appendChild(title);
+            const grid = document.createElement('div');
+            grid.className = 'icon-grid';
+            categories[category].forEach(filename => {
+                const icon = document.createElement('div');
+                icon.className = 'item-icon';
+                icon.innerHTML = `<img src="${CONFIG.iconPath}${filename}" alt="${filename}">`;
+                icon.onclick = (e) => {
+                    e.stopPropagation();
+                    handleItemClick(category, filename);
+                };
+                grid.appendChild(icon);
+            });
+            container.appendChild(grid);
+        });
+    }
+
+    function getCategory(filename) {
+        const name = filename.toLowerCase();
+        if (name.includes('acc')) return '配件';
+        if (name.includes('bottom')) return '下装';
+        if (name.includes('coat')) return '外套';
+        if (name.includes('tie')) return '配饰';
+        if (name.includes('med')) return '中层';
+        if (name.match(/^t10|^t\d{3}/i) || name.includes('shirt') || name.includes('knit') || name.includes('hoodie') || name.includes('txu')) return '上衣';
+        if (name.includes('shoes')) return '鞋子';
+        if (name.includes('hand')) return '手持';
+        return '其他';
+    }
+
+    function handleItemClick(category, filename) {
+        saveHistory();
+        if (MULTI_WEAR_CATEGORIES.includes(category)) {
+            if (!currentOutfit[category]) currentOutfit[category] = [];
+            const index = currentOutfit[category].indexOf(filename);
+            if (index > -1) {
+                currentOutfit[category].splice(index, 1);
+            } else {
+                currentOutfit[category].push(filename);
+            }
+        } else {
+            if (currentOutfit[category] === filename) {
+                delete currentOutfit[category];
+            } else {
+                currentOutfit[category] = filename;
+                lastWornItem = { category, filename };
+            }
+        }
+        renderOutfit();
+        updateSelection(category);
+    }
+
+    function renderOutfit() {
+        const container = document.getElementById('character-container');
+        const existingLayers = container.querySelectorAll('.clothing-layer:not([style*="z-index: 0"])');
+        existingLayers.forEach(layer => layer.remove());
+        
+        // 切换身体图片：如果有手持物则使用 body2.png，否则使用 body.png
+        const bodyImg = container.querySelector('img[alt="body"]');
+        const hasHandItem = currentOutfit['手持'] && currentOutfit['手持'].length > 0;
+        if (bodyImg) {
+            bodyImg.src = hasHandItem ? 'assets/clothing/body2.png' : 'assets/clothing/body.png';
+        }
+        
+        const wornCategories = new Set();
+        Object.entries(currentOutfit).forEach(([category, filenames]) => {
+            const files = Array.isArray(filenames) ? filenames : [filenames];
+            files.forEach(filename => {
+                const zIndex = getZIndex(filename) + (layerOffsets[category] || 0);
+                const img = document.createElement('img');
+                img.src = `${CONFIG.clothPath}${filename}`;
+                img.className = 'clothing-layer';
+                img.style.zIndex = zIndex;
+                img.style.pointerEvents = 'auto';
+                img.onclick = (e) => {
+                    e.stopPropagation();
+                    updateSelection(category);
+                };
+                container.appendChild(img);
+                wornCategories.add(category);
+            });
+        });
+        updateWornStatus(wornCategories);
+    }
+
+    function getZIndex(filename) {
+        const name = filename.toLowerCase();
+        // 按z值从大到小排序，确保外套(6)、配件(7)等高层级先被匹配
+        const sortedRules = [...LAYER_RULES].sort((a, b) => b.z - a.z);
+        for (const rule of sortedRules) {
+            if (name.includes(rule.key)) return rule.z;
+        }
+        return 10;
+    }
+
+    function updateWornStatus(wornCategories) {
+        document.querySelectorAll('.item-icon').forEach(icon => {
+            icon.classList.remove('last-worn');
+        });
+        wornCategories.forEach(category => {
+            const filenames = currentOutfit[category];
+            const files = Array.isArray(filenames) ? filenames : [filenames];
+            files.forEach(filename => {
+                const icon = findIconByFilename(filename);
+                if (icon) icon.classList.add('last-worn');
+            });
+        });
+    }
+
+    function findIconByFilename(filename) {
+        return document.querySelector(`.item-icon img[src*="${filename}"]`)?.closest('.item-icon');
+    }
+
+    function updateSelection(category) {
+        document.querySelectorAll('.item-icon').forEach(icon => icon.classList.remove('selected'));
+        currentSelection = category;
+        const filenames = currentOutfit[category];
+        const files = Array.isArray(filenames) ? filenames : [filenames];
+        files.forEach(filename => {
+            const icon = findIconByFilename(filename);
+            if (icon) icon.classList.add('selected');
+        });
+    }
+
+    function saveHistory() {
+        const snapshot = JSON.parse(JSON.stringify(currentOutfit));
+        historyStack.push(snapshot);
+        if (historyStack.length > 20) historyStack.shift();
+    }
+
+    function undo() {
+        if (historyStack.length === 0) return;
+        currentOutfit = historyStack.pop();
+        renderOutfit();
+    }
+
+    function moveLayer(direction) {
+        if (!currentSelection) return;
+        const category = currentSelection;
+        if (!layerOffsets[category]) layerOffsets[category] = 0;
+        layerOffsets[category] += direction;
+        renderOutfit();
+        showDialog(`层级调整: ${layerOffsets[category] > 0 ? '上移' : '下移'} ${Math.abs(layerOffsets[category])} 层`);
+    }
+
+    function handleStrip() {
+        saveHistory();
+        currentOutfit = {};
+        layerOffsets = {};
+        renderOutfit();
+        showDialog('一键脱衣 完成!');
+    }
+
+    function randomOutfit() {
+        saveHistory();
+        
+        // 按类别分组图标
+        const categoryGroups = {};
+        const icons = document.querySelectorAll('.item-icon');
+        icons.forEach(icon => {
+            const img = icon.querySelector('img');
+            if (!img) return;
+            const src = img.src;
+            const filename = src.split('/').pop();
+            const category = getCategory(filename);
+            if (!categoryGroups[category]) {
+                categoryGroups[category] = [];
+            }
+            categoryGroups[category].push({ filename, icon });
+        });
+        
+        // 清空当前穿搭
+        currentOutfit = {};
+        
+        // 非配件类别：每个最多选1件
+        const singleWearCategories = ['上衣', '中层', '下装', '鞋子', '配饰', '外套', '手持', '其他'];
+        
+        // 为每个非配件类别随机选择0-1件
+        singleWearCategories.forEach(category => {
+            if (categoryGroups[category] && categoryGroups[category].length > 0) {
+                // 50%概率选择该类别
+                if (Math.random() > 0.3) {
+                    const items = categoryGroups[category];
+                    const randomItem = items[Math.floor(Math.random() * items.length)];
+                    currentOutfit[category] = randomItem.filename;
+                }
+            }
+        });
+        
+        // 配件类别：可以选1-3件
+        if (categoryGroups['配件'] && categoryGroups['配件'].length > 0) {
+            const accItems = categoryGroups['配件'];
+            const accCount = Math.floor(Math.random() * 3) + 1; // 1-3件
+            const shuffledAcc = accItems.sort(() => 0.5 - Math.random());
+            currentOutfit['配件'] = shuffledAcc.slice(0, accCount).map(item => item.filename);
+        }
+        
+        renderOutfit();
+        showDialog('随机穿搭完成!');
+    }
+
+    function showDialog(message) {
+        const dialog = document.getElementById('dialog');
+        dialog.textContent = message;
+        dialog.style.display = 'block';
+        setTimeout(() => dialog.style.display = 'none', 2000);
+    }
+
+    function initStats() {
+        const count = localStorage.getItem('visitorCount') || 0;
+        const newCount = parseInt(count) + 1;
+        localStorage.setItem('visitorCount', newCount);
+        document.getElementById('stats').textContent = `Styled by 第 ${newCount} 位 奇迹宏宏搭配师`;
+    }
+
+    function resetIdleTimer() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+            showDialog('空闲中...点击任意位置继续');
+        }, CONFIG.idleTime);
+    }
+</script>
+</body>
+</html>
