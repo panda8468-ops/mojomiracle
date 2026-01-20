@@ -739,6 +739,39 @@
                         80% { transform: translate(5px, -5px); }
                         90% { transform: translate(-3px, 3px); }
                     }
+
+                    #mojo-content .reset-notice {
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        font-size: 32px;
+                        font-weight: bold;
+                        color: #e74c3c;
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+                        pointer-events: none;
+                        opacity: 0;
+                        z-index: 500;
+                    }
+
+                    #mojo-content .reset-notice.show { animation: resetNoticeAnim 1.5s ease-out; }
+
+                    @keyframes resetNoticeAnim {
+                        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+                        30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+                        70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+                        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+                    }
+
+                    #mojo-content .cell.resetting {
+                        animation: cellReset 0.5s ease-out forwards;
+                    }
+
+                    @keyframes cellReset {
+                        0% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(0.8) rotate(10deg); opacity: 0.7; }
+                        100% { transform: scale(0) rotate(360deg); opacity: 0; }
+                    }
                 </style>
 
                 <div class="game-body">
@@ -798,6 +831,7 @@
                     </div>
 
                     <div class="combo-display" id="combo-display"></div>
+                    <div class="reset-notice" id="reset-notice">无法消除，自动重置!</div>
 
                     <script>
                         (function() {
@@ -906,7 +940,15 @@
                                         gameState.grid[row][col] = { animal: getRandomAnimal(), prop: null };
                                     }
                                 }
-                                while (findMatches().length > 0) generateGrid();
+                                // 确保没有初始匹配且有可行的移动
+                                while (findMatches().length > 0 || !hasPossibleMoves()) {
+                                    // 如果没有可能的移动，重新生成整个网格
+                                    for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                        for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                            gameState.grid[row][col] = { animal: getRandomAnimal(), prop: null };
+                                        }
+                                    }
+                                }
                             }
 
                             function getRandomAnimal() {
@@ -1056,7 +1098,7 @@
                                         gameState.grid[row2][col2] = temp;
                                         renderGrid();
                                         setTimeout(() => {
-                                            if (!hasPossibleMoves()) resetGrid();
+                                            if (!hasPossibleMoves()) resetGridWithAnimation();
                                         }, CONFIG.ANIMATION_DURATION);
                                     }
                                 }, CONFIG.ANIMATION_DURATION);
@@ -1070,24 +1112,32 @@
                                             gameState.grid[row][col] = gameState.grid[row][col + 1];
                                             gameState.grid[row][col + 1] = temp;
                                             if (findMatches().length > 0) {
-                                                gameState.grid[row][col + 1] = gameState.grid[row][col];
-                                                gameState.grid[row][col] = temp;
+                                                // 恢复网格状态
+                                                temp = gameState.grid[row][col];
+                                                gameState.grid[row][col] = gameState.grid[row][col + 1];
+                                                gameState.grid[row][col + 1] = temp;
                                                 return true;
                                             }
-                                            gameState.grid[row][col + 1] = gameState.grid[row][col];
-                                            gameState.grid[row][col] = temp;
+                                            // 恢复网格状态
+                                            temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row][col + 1];
+                                            gameState.grid[row][col + 1] = temp;
                                         }
                                         if (row < CONFIG.GRID_ROWS - 1) {
                                             let temp = gameState.grid[row][col];
                                             gameState.grid[row][col] = gameState.grid[row + 1][col];
                                             gameState.grid[row + 1][col] = temp;
                                             if (findMatches().length > 0) {
-                                                gameState.grid[row + 1][col] = gameState.grid[row][col];
-                                                gameState.grid[row][col] = temp;
+                                                // 恢复网格状态
+                                                temp = gameState.grid[row][col];
+                                                gameState.grid[row][col] = gameState.grid[row + 1][col];
+                                                gameState.grid[row + 1][col] = temp;
                                                 return true;
                                             }
-                                            gameState.grid[row + 1][col] = gameState.grid[row][col];
-                                            gameState.grid[row][col] = temp;
+                                            // 恢复网格状态
+                                            temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row + 1][col];
+                                            gameState.grid[row + 1][col] = temp;
                                         }
                                     }
                                 }
@@ -1097,6 +1147,41 @@
                             function resetGrid() {
                                 generateGrid();
                                 renderGrid();
+                            }
+
+                            // 带动画效果的重置网格
+                            function resetGridWithAnimation() {
+                                if (gameState.isAnimating) return;
+                                
+                                // 显示重置提示
+                                const resetNotice = document.getElementById('reset-notice');
+                                resetNotice.classList.add('show');
+                                
+                                // 1秒后开始重置动画
+                                setTimeout(() => {
+                                    // 为所有格子添加消失动画
+                                    const cells = document.querySelectorAll('.cell');
+                                    cells.forEach((cell, index) => {
+                                        setTimeout(() => {
+                                            cell.classList.add('resetting');
+                                        }, index * 30); // 每个格子延迟30ms
+                                    });
+                                    
+                                    // 等待动画完成后重新生成网格
+                                    setTimeout(() => {
+                                        generateGrid();
+                                        renderGrid();
+                                        
+                                        // 检查新网格是否仍然没有可能的移动
+                                        if (!hasPossibleMoves()) {
+                                            // 如果仍然没有，再重试一次
+                                            setTimeout(() => {
+                                                resetGridWithAnimation();
+                                            }, 500);
+                                        }
+                                    }, cells.length * 30 + 500);
+                                    
+                                }, 1000);
                             }
 
                             function findMatches() {
@@ -1286,7 +1371,14 @@
                                     gameState.isAnimating = false;
                                     setTimeout(() => {
                                         const newMatches = findMatches();
-                                        if (newMatches.length > 0) processMatches();
+                                        if (newMatches.length > 0) {
+                                            processMatches();
+                                        } else {
+                                            // 检查是否还有可能的移动
+                                            if (!hasPossibleMoves()) {
+                                                resetGridWithAnimation();
+                                            }
+                                        }
                                     }, CONFIG.ANIMATION_DURATION);
                                 }, CONFIG.ANIMATION_DURATION);
                             }
@@ -1444,7 +1536,13 @@
                                         renderGrid();
                                         setTimeout(() => {
                                             const newMatches = findMatches();
-                                            if (newMatches.length > 0) processMatches();
+                                            if (newMatches.length > 0) {
+                                                processMatches();
+                                            } else {
+                                                if (!hasPossibleMoves()) {
+                                                    resetGridWithAnimation();
+                                                }
+                                            }
                                         }, CONFIG.ANIMATION_DURATION);
                                     }, CONFIG.ANIMATION_DURATION / 2);
                                 }, CONFIG.ANIMATION_DURATION);
