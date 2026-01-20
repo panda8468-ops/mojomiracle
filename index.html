@@ -466,6 +466,13 @@
                         margin: 0 15px;
                         text-align: center;
                     }
+                    
+                    /* 计分区上面的分隔框 */
+                    #mojo-content .score-divider {
+                        height: 0px;
+                        background: #e1e1e1;
+                        margin: 5px 0;
+                    }
 
                     #mojo-content .score-display {
                         font-size: 18px;
@@ -568,6 +575,13 @@
                         background: linear-gradient(180deg, #2c3e50, #34495e);
                         border-radius: 15px;
                         box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                    }
+                    
+                    /* 技能区下面的分隔框 */
+                    #mojo-content .skill-divider {
+                        height: 20px;
+                        background: #e1e1e1;
+                        margin: 5px 0 10px 0;
                     }
 
                     #mojo-content .spacer-area {
@@ -679,6 +693,10 @@
                         color: white;
                     }
 
+                    #mojo-content .start-modal .modal-content > p:not(:first-child) {
+                        text-align: left;
+                    }
+
                     #mojo-content .start-modal h1 {
                         font-size: 32px;
                         margin-bottom: 20px;
@@ -731,6 +749,7 @@
                                 <div style="font-size: 12px; color: #666;">目标: <span id="target-score">329</span>分</div>
                             </div>
                             <div class="score-container">
+                                <div class="score-divider"></div>
                                 <div class="score-display">得分: <span id="current-score">0</span></div>
                                 <div class="progress-bar">
                                     <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
@@ -754,13 +773,18 @@
                             <button class="game-button btn-pink" id="btn-pink" data-count="1" title="宏咪大破坏"></button>
                         </div>
 
+                        <div class="skill-divider"></div>
                         <div class="spacer-area"></div>
                     </div>
 
                     <div class="modal start-modal show" id="start-modal">
                         <div class="modal-content">
                             <h1>Mojo消消乐</h1>
-                            <p>准备好了吗？</p>
+                            <p>先阅读游戏规则</p>
+                            <p>1. 横向/纵向三个相同即可消除</p>
+                            <p>2. 横向/纵向四个相同消除后会产生一个道具，点击道具可以消除整行/整列</p>
+                            <p>3. 五个相同mojo消除后会产生一个超级道具，点击道具可以清屏</p>
+                            <p>4. 五球是技能魔法，每一局每个球只可以使用一次哦</p>
                             <button class="modal-btn" id="start-btn">开始游戏</button>
                         </div>
                     </div>
@@ -1113,9 +1137,127 @@
                                 return matches;
                             }
 
+                            // 音频管理器 - 解决移动端音频问题
+                            const audioManager = {
+                                audioContext: null,
+                                audioBuffers: {},
+                                audioElements: {},
+                                initialized: false,
+                                
+                                // 初始化音频上下文（需要用户交互）
+                                init: function() {
+                                    if (this.initialized) return;
+                                    try {
+                                        // 创建 AudioContext
+                                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                                        if (AudioContext) {
+                                            this.audioContext = new AudioContext();
+                                        }
+                                        this.initialized = true;
+                                        console.log('AudioManager initialized');
+                                    } catch (e) {
+                                        console.log('AudioContext not supported:', e);
+                                    }
+                                },
+                                
+                                // 预加载音频文件
+                                preload: function(soundFile) {
+                                    if (this.audioElements[soundFile]) return; // 已预加载
+                                    
+                                    const audio = new Audio();
+                                    audio.src = `assets/mojo/${soundFile}`;
+                                    audio.preload = 'auto';
+                                    audio.load();
+                                    this.audioElements[soundFile] = audio;
+                                    
+                                    // 预加载到 AudioBuffer（如果支持）
+                                    if (this.audioContext) {
+                                        fetch(`assets/mojo/${soundFile}`)
+                                            .then(response => response.arrayBuffer())
+                                            .then(buffer => {
+                                                return this.audioContext.decodeAudioData(buffer);
+                                            })
+                                            .then(decodedBuffer => {
+                                                this.audioBuffers[soundFile] = decodedBuffer;
+                                            })
+                                            .catch(e => console.log('Audio buffer preload failed:', e));
+                                    }
+                                },
+                                
+                                // 恢复 AudioContext（页面恢复时调用）
+                                resume: function() {
+                                    if (this.audioContext && this.audioContext.state === 'suspended') {
+                                        this.audioContext.resume().then(() => {
+                                            console.log('AudioContext resumed');
+                                        }).catch(e => {
+                                            console.log('AudioContext resume failed:', e);
+                                        });
+                                    }
+                                },
+                                
+                                // 播放音频
+                                play: function(soundFile) {
+                                    // 确保 AudioContext 已初始化
+                                    this.init();
+                                    
+                                    // 尝试使用 AudioBuffer 播放（更低延迟）
+                                    if (this.audioContext && this.audioBuffers[soundFile]) {
+                                        const source = this.audioContext.createBufferSource();
+                                        source.buffer = this.audioBuffers[soundFile];
+                                        source.connect(this.audioContext.destination);
+                                        source.start(0);
+                                        return;
+                                    }
+                                    
+                                    // 回退到 Audio 元素播放
+                                    let audio = this.audioElements[soundFile];
+                                    if (!audio) {
+                                        audio = new Audio(`assets/mojo/${soundFile}`);
+                                        this.audioElements[soundFile] = audio;
+                                    }
+                                    
+                                    // 重置播放位置并播放
+                                    audio.currentTime = 0;
+                                    audio.play().catch(e => {
+                                        console.log('Audio play failed:', e);
+                                        // 如果播放失败，尝试恢复 AudioContext
+                                        this.resume();
+                                    });
+                                }
+                            };
+                            
+                            // 预加载所有音效
+                            const soundFiles = ['clear.mp3', 'cong.mp3', 'ming.mp3', 'ashin.mp3', 'masa.mp3', 'monster.mp3', 'stone.mp3'];
+                            
+                            // 用户交互时初始化音频
+                            document.addEventListener('click', function initAudioOnClick() {
+                                audioManager.init();
+                                // 预加载音效
+                                soundFiles.forEach(file => audioManager.preload(file));
+                                // 移除事件监听器
+                                document.removeEventListener('click', initAudioOnClick);
+                            }, { once: true });
+                            
+                            document.addEventListener('touchstart', function initAudioOnTouch() {
+                                audioManager.init();
+                                soundFiles.forEach(file => audioManager.preload(file));
+                                document.removeEventListener('touchstart', initAudioOnTouch);
+                            }, { once: true });
+                            
+                            // 页面可见性变化时恢复 AudioContext
+                            document.addEventListener('visibilitychange', function() {
+                                if (document.visibilityState === 'visible') {
+                                    audioManager.resume();
+                                }
+                            });
+                            
+                            // 窗口焦点恢复时也尝试恢复
+                            window.addEventListener('focus', function() {
+                                audioManager.resume();
+                            });
+                            
                             function playSound(soundFile) {
-                                const audio = new Audio(`assets/mojo/${soundFile}`);
-                                audio.play().catch(e => console.log('Audio play failed:', e));
+                                audioManager.play(soundFile);
                             }
 
                             function processMatches() {
@@ -1486,6 +1628,7 @@
         </div>
 
         <div class="footer-stats" id="stats">Styled by 第 loading... 位 奇迹宏宏搭配师</div>
+        <div class="footer-stats" style="bottom: 30px;">developed by 小红书 熊貓団子</div>
         
         <button class="mojo-btn" onclick="openMojo()">去玩MOJO消消乐Beta版</button>
         <button class="random-btn" onclick="randomOutfit()">让宏宏决定</button>
@@ -1497,18 +1640,15 @@
     
     const LAYER_RULES = [
         { key: 'body', z: 0 },
-        // 内层衣物（层级1-2）
-        { key: 'txu', z: 1 }, { key: 'shirt', z: 1 }, { key: 'knit', z: 1 }, { key: 'hoodie', z: 1 },
-        { key: 'med', z: 2 },
-        // 中层衣物（层级3-4）
-        { key: 'bottom', z: 3 },
-        { key: 'shoes', z: 4 },
-        // 外层衣物（层级5-6）
-        { key: 'tie', z: 5 },
-        { key: 'coat', z: 6 },
-        // 最外层配饰（层级7）
-        { key: 'acc', z: 7 },
-        { key: 'hand', z: 7 }
+        // 内层衣物（底层）
+        { key: 'txu', z: 1 }, { key: 'shirt', z: 1 }, { key: 'knit', z: 1 }, { key: 'hoodie', z: 1 }, // 上衣必须在外套、中层、配饰下面
+        // 中层衣物
+        { key: 'shoes', z: 2 }, { key: 'bottom', z: 3 }, // 鞋子在下层，裤子在上层（但可互换）
+        { key: 'med', z: 3 }, // 中层
+        { key: 'tie', z: 4 }, // 配饰
+        { key: 'coat', z: 5 }, // 外套必须在上衣、中层、配饰、裤子上面
+        // 最外层配饰
+        { key: 'acc', z: 6 }, { key: 'hand', z: 6 }
     ];
 
     const ASSET_DATABASE = [
@@ -1657,14 +1797,18 @@
 
     function getCategory(filename) {
         const name = filename.toLowerCase();
+        // 先判断更具体的类别，避免分类冲突
         if (name.includes('acc')) return '配件';
+        if (name.includes('hand')) return '手持';
+        if (name.includes('shoes')) return '鞋子';
         if (name.includes('bottom')) return '下装';
+        // 中层物品判断在上衣之前
+        if (name.includes('med')) return '中层';
+        // 外套判断在配饰（tie）之前，避免分类冲突
         if (name.includes('coat')) return '外套';
         if (name.includes('tie')) return '配饰';
-        if (name.includes('med')) return '中层';
-        if (name.match(/^t10|^t\d{3}/i) || name.includes('shirt') || name.includes('knit') || name.includes('hoodie') || name.includes('txu')) return '上衣';
-        if (name.includes('shoes')) return '鞋子';
-        if (name.includes('hand')) return '手持';
+        // 上衣判断：包含shirt/knit/hoodie/txu
+        if (name.includes('shirt') || name.includes('knit') || name.includes('hoodie') || name.includes('txu')) return '上衣';
         return '其他';
     }
 
@@ -1777,18 +1921,120 @@
     function moveLayer(direction) {
         if (!currentSelection) return;
         const category = currentSelection;
+        
+        // Body 不能移动
+        if (category === '身体') {
+            showDialog('身体不能移动层级');
+            return;
+        }
+        
+        // 配件和手持被锁定，不可移动层级
+        if (category === '配件'  || category === '手持') {
+            showDialog('配件和手持不可以移动哦');
+            return;
+        }
+        
+        // 外套被锁定，不可移动层级
+        if (category === '外套') {
+            showDialog('外套不可以移动哦');
+            return;
+        }
+        
+        // 获取当前物品的层级基础值
+        const currentRule = LAYER_RULES.find(r => r.key === getCategoryKey(category));
+        if (!currentRule) return;
+        
+        // 计算移动后的层级
         if (!layerOffsets[category]) layerOffsets[category] = 0;
-        layerOffsets[category] += direction;
+        const newOffset = layerOffsets[category] + direction;
+        const newZ = currentRule.z + newOffset;
+        
+        // 验证层级移动是否合法
+        if (!canMoveToLayer(category, newZ, direction)) {
+            showDialog('不能再移动了啦');
+            return;
+        }
+        
+        layerOffsets[category] = newOffset;
         renderOutfit();
-        showDialog(`层级调整: ${layerOffsets[category] > 0 ? '上移' : '下移'} ${Math.abs(layerOffsets[category])} 层`);
+        showDialog(`层级调整: ${newOffset > 0 ? '上移' : '下移'} ${Math.abs(newOffset)} 层`);
+    }
+    
+    // 获取类别的 key
+    function getCategoryKey(category) {
+        const mapping = {
+            '上衣': 'shirt',
+            '下装': 'bottom',
+            '外套': 'coat',
+            '配饰': 'tie',
+            '中层': 'med',
+            '鞋子': 'shoes',
+            '配件': 'acc',
+            '手持': 'hand'
+        };
+        return mapping[category] || category;
+    }
+    
+    // 检查是否可以移动到指定层级
+    function canMoveToLayer(category, newZ, direction) {
+        const key = getCategoryKey(category);
+        
+        // Body 不能移动
+        if (key === 'body') return false;
+        
+        // 配件和手持只能在最上层，不能上移
+        if ((key === 'acc' || key === 'hand') && direction > 0) return false;
+        
+        // 配饰（tie）必须在外套下层，在裤子、鞋子、上衣的上层
+        // 配饰范围：z > 1（上衣）且 z < 5（外套）
+        if (key === 'tie') {
+            if (newZ <= 1) return false; // 不能移到上衣及以下
+            if (newZ >= 5) return false; // 不能移到外套及以上
+        }
+        
+        // 上衣（z:1）、中层（z:3）、裤子（z:2）、鞋子（z:2）不能移动到被锁定的层级上方
+        // 被锁定的层级：配件(z:6)、配饰(z:4)、手持(z:6)、外套(z:5)、Body(z:0)
+        if ((key === 'txu' || key === 'shirt' || key === 'knit' || key === 'hoodie' || key === 'med' || key === 'bottom' || key === 'shoes')) {
+            const maxAllowedZ = 4; // 不能移到配饰(z:4)及以上的位置
+            if (newZ >= maxAllowedZ) return false;
+        }
+        
+        // Body 必须在最底层
+        if (newZ < 0) return false;
+        
+        return true;
     }
 
     function handleStrip() {
         saveHistory();
+        // 检查是否除了body以外没有任何其他物品
+        const isOnlyBody = Object.keys(currentOutfit).length === 0;
+        
         currentOutfit = {};
         layerOffsets = {};
         renderOutfit();
-        showDialog('一键脱衣 完成!');
+        
+        if (isOnlyBody) {
+            // 如果只有body，播放惊喜视频
+            playSurpriseVideo();
+        } else {
+            showDialog('一键脱衣 完成!');
+        }
+    }
+    
+    function playSurpriseVideo() {
+        const videoOverlay = document.getElementById('video-overlay');
+        const video = document.getElementById('bonus-video');
+        videoOverlay.style.display = 'flex';
+        video.currentTime = 0;
+        video.play().catch(e => console.log('视频播放失败:', e));
+    }
+    
+    function closeVideo() {
+        const videoOverlay = document.getElementById('video-overlay');
+        const video = document.getElementById('bonus-video');
+        video.pause();
+        videoOverlay.style.display = 'none';
     }
 
     function randomOutfit() {
@@ -1818,8 +2064,8 @@
         // 为每个非配件类别随机选择0-1件
         singleWearCategories.forEach(category => {
             if (categoryGroups[category] && categoryGroups[category].length > 0) {
-                // 50%概率选择该类别
-                if (Math.random() > 0.3) {
+                // 70%概率选择该类别
+                if (Math.random() < 0.7) {
                     const items = categoryGroups[category];
                     const randomItem = items[Math.floor(Math.random() * items.length)];
                     currentOutfit[category] = randomItem.filename;
@@ -1836,27 +2082,45 @@
         }
         
         renderOutfit();
-        showDialog('随机穿搭完成!');
+        showDialog('宏宏自己搭的，帅气咪 =^w^=');
     }
 
     function showDialog(message) {
         const dialog = document.getElementById('dialog');
         dialog.textContent = message;
         dialog.style.display = 'block';
-        setTimeout(() => dialog.style.display = 'none', 2000);
+        setTimeout(() => dialog.style.display = 'none', 10000);
     }
 
     function initStats() {
-        const count = localStorage.getItem('visitorCount') || 0;
-        const newCount = parseInt(count) + 1;
-        localStorage.setItem('visitorCount', newCount);
-        document.getElementById('stats').textContent = `Styled by 第 ${newCount} 位 奇迹宏宏搭配师`;
+        let count = localStorage.getItem('visitorCount');
+        if (count === null) {
+            count = 5525;
+        } else {
+            count = parseInt(count) + 1;
+        }
+        localStorage.setItem('visitorCount', count);
+        document.getElementById('stats').textContent = `Styled by 第 ${count} 位 奇迹宏宏搭配师`;
+    }
+
+    // 闲置时显示的随机提示语
+    const IDLE_MESSAGES = [
+        "老师，还没给宏宏选好衣服吗",
+        "没关系慢慢选，宏宏可以等的",
+        "选那么久，宏宏好期待啊",
+        "没有挑到心仪的衣服吗？去StayReal店铺看看吧"
+    ];
+
+    function getRandomIdleMessage() {
+        const randomIndex = Math.floor(Math.random() * IDLE_MESSAGES.length);
+        return IDLE_MESSAGES[randomIndex];
     }
 
     function resetIdleTimer() {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
-            showDialog('空闲中...点击任意位置继续');
+            showDialog(getRandomIdleMessage());
+            resetIdleTimer(); // 重新设置计时器，实现循环提示
         }, CONFIG.idleTime);
     }
 </script>
