@@ -435,6 +435,7 @@
                         border-radius: 5px;
                         cursor: pointer;
                         transition: background 0.3s ease;
+                        display: none;
                     }
 
                     #mojo-content .test-button:hover { background: #e67e22; }
@@ -772,6 +773,40 @@
                         50% { transform: scale(0.8) rotate(10deg); opacity: 0.7; }
                         100% { transform: scale(0) rotate(360deg); opacity: 0; }
                     }
+
+                    /* 可消除提示晃动动画 */
+                    #mojo-content .hint-shake {
+                        animation: hintShake 0.5s ease-in-out infinite;
+                        border: 3px solid #f39c12 !important;
+                        box-shadow: 0 0 15px rgba(243, 156, 18, 0.8) !important;
+                    }
+
+                    @keyframes hintShake {
+                        0%, 100% { transform: translateX(0); }
+                        25% { transform: translateX(-5px); }
+                        50% { transform: translateX(5px); }
+                        75% { transform: translateX(-3px); }
+                    }
+
+                    /* 温和的闪烁提示动画 */
+                    #mojo-content .hint-blink {
+                        animation: hintBlink 1s ease-in-out infinite;
+                        border: 3px solid #f39c12 !important;
+                        box-shadow: 0 0 15px rgba(243, 156, 18, 0.8) !important;
+                    }
+
+                    @keyframes hintBlink {
+                        0%, 100% { 
+                            transform: scale(1);
+                            opacity: 1;
+                            box-shadow: 0 0 10px rgba(243, 156, 18, 0.5);
+                        }
+                        50% { 
+                            transform: scale(1.05);
+                            opacity: 0.8;
+                            box-shadow: 0 0 20px rgba(243, 156, 18, 0.9);
+                        }
+                    }
                 </style>
 
                 <div class="game-body">
@@ -858,8 +893,15 @@
                                 comboCount: 0,
                                 draggedCell: null,
                                 skillUsed: false,
-                                testModeEnabled: false
+                                testModeEnabled: false,
+                                lastMoveTime: Date.now(), // 记录最后移动时间
+                                hintCell: null // 当前提示的格子
                             };
+
+                            // 空闲检测配置
+                            const IDLE_CHECK_INTERVAL = 1000; // 每秒检查一次
+                            const IDLE_THRESHOLD = 10000; // 10秒无操作显示提示
+                            let idleCheckTimer = null;
 
                             // DOM元素
                             const gameBoard = document.getElementById('game-board');
@@ -878,6 +920,124 @@
                                     document.getElementById('test-btn').classList.add('hidden');
                                 }
                                 loadLevel(gameState.level);
+                                startIdleCheck();
+                            }
+
+                            // 启动空闲检测
+                            function startIdleCheck() {
+                                if (idleCheckTimer) clearInterval(idleCheckTimer);
+                                idleCheckTimer = setInterval(checkIdleAndShowHint, IDLE_CHECK_INTERVAL);
+                            }
+
+                            // 停止空闲检测
+                            function stopIdleCheck() {
+                                if (idleCheckTimer) {
+                                    clearInterval(idleCheckTimer);
+                                    idleCheckTimer = null;
+                                }
+                            }
+
+                            // 检查空闲时间并显示提示
+                            function checkIdleAndShowHint() {
+                                // 如果游戏正在进行动画或Modal显示，不显示提示
+                                if (gameState.isAnimating || startModal.classList.contains('show') || winModal.classList.contains('show')) {
+                                    return;
+                                }
+                                
+                                const now = Date.now();
+                                const elapsed = now - gameState.lastMoveTime;
+                                
+                                // 如果超过10秒没有移动
+                                if (elapsed >= IDLE_THRESHOLD) {
+                                    // 查找可以触发消除的格子
+                                    const hintMove = findHintMove();
+                                    if (hintMove) {
+                                        showHintAnimation(hintMove.row, hintMove.col);
+                                    }
+                                }
+                            }
+
+                            // 查找可以触发消除的格子（找到第一匹配立即返回）
+                            function findHintMove() {
+                                for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
+                                    for (let col = 0; col < CONFIG.GRID_COLS; col++) {
+                                        // 检查向右交换
+                                        if (col < CONFIG.GRID_COLS - 1) {
+                                            let temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row][col + 1];
+                                            gameState.grid[row][col + 1] = temp;
+                                            if (findMatches().length > 0) {
+                                                // 恢复网格状态
+                                                temp = gameState.grid[row][col];
+                                                gameState.grid[row][col] = gameState.grid[row][col + 1];
+                                                gameState.grid[row][col + 1] = temp;
+                                                return { row, col, direction: 'right' }; // 找到第一匹配立即返回
+                                            }
+                                            // 恢复网格状态
+                                            temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row][col + 1];
+                                            gameState.grid[row][col + 1] = temp;
+                                        }
+                                        
+                                        // 检查向下交换
+                                        if (row < CONFIG.GRID_ROWS - 1) {
+                                            let temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row + 1][col];
+                                            gameState.grid[row + 1][col] = temp;
+                                            if (findMatches().length > 0) {
+                                                // 恢复网格状态
+                                                temp = gameState.grid[row][col];
+                                                gameState.grid[row][col] = gameState.grid[row + 1][col];
+                                                gameState.grid[row + 1][col] = temp;
+                                                return { row, col, direction: 'down' }; // 找到第一匹配立即返回
+                                            }
+                                            // 恢复网格状态
+                                            temp = gameState.grid[row][col];
+                                            gameState.grid[row][col] = gameState.grid[row + 1][col];
+                                            gameState.grid[row + 1][col] = temp;
+                                        }
+                                    }
+                                }
+                                
+                                return null; // 没有找到可消除的移动
+                            }
+
+                            // 显示温和的闪烁提示动画
+                            let hintTimeout = null;
+                            
+                            function showHintAnimation(row, col) {
+                                // 清除之前的提示
+                                clearHintAnimation();
+                                
+                                const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+                                if (cell) {
+                                    cell.classList.add('hint-blink');
+                                    gameState.hintCell = cell;
+                                }
+                                
+                                // 2秒后自动清除提示
+                                if (hintTimeout) clearTimeout(hintTimeout);
+                                hintTimeout = setTimeout(() => {
+                                    clearHintAnimation();
+                                }, 2000);
+                            }
+
+                            // 清除提示动画
+                            function clearHintAnimation() {
+                                if (hintTimeout) {
+                                    clearTimeout(hintTimeout);
+                                    hintTimeout = null;
+                                }
+                                if (gameState.hintCell) {
+                                    gameState.hintCell.classList.remove('hint-blink');
+                                    gameState.hintCell = null;
+                                }
+                            }
+
+                            // 重置空闲计时器（当玩家进行移动时调用）
+                            function resetIdleTimer() {
+                                gameState.lastMoveTime = Date.now();
+                                clearHintAnimation();
                             }
 
                             function setupMobileOptimizations() {
@@ -895,6 +1055,7 @@
                             }
 
                             function closeMojo() {
+                                stopIdleCheck();
                                 document.getElementById('mojo-overlay').style.display = 'none';
                             }
 
@@ -994,6 +1155,7 @@
                             let highlightedCell = null;
 
                             function handleDragStart(e) {
+                                resetIdleTimer(); // 重置空闲计时器
                                 gameState.draggedCell = e.target.closest('.cell');
                                 gameState.draggedCell.classList.add('dragging');
                                 e.dataTransfer.effectAllowed = 'move';
@@ -1021,6 +1183,7 @@
 
                             function handleTouchStart(e) {
                                 e.preventDefault();
+                                resetIdleTimer(); // 重置空闲计时器
                                 touchStartCell = e.target.closest('.cell');
                                 touchStartCell.classList.add('dragging');
                                 highlightedCell = null;
@@ -1079,6 +1242,10 @@
                                 const col2 = parseInt(cell2.dataset.col);
                                 const isAdjacent = (Math.abs(row1 - row2) === 1 && col1 === col2) || (Math.abs(col1 - col2) === 1 && row1 === row2);
                                 if (!isAdjacent) return;
+                                
+                                // 重置空闲计时器
+                                resetIdleTimer();
+                                
                                 const temp = gameState.grid[row1][col1];
                                 gameState.grid[row1][col1] = gameState.grid[row2][col2];
                                 gameState.grid[row2][col2] = temp;
@@ -1492,6 +1659,7 @@
 
                             function useProp(row, col, propType) {
                                 if (gameState.isAnimating) return;
+                                resetIdleTimer(); // 重置空闲计时器
                                 gameState.skillUsed = true;
                                 const positionsToEliminate = [];
                                 switch (propType) {
@@ -1550,6 +1718,7 @@
 
                             function useButton(buttonType) {
                                 if (gameState.buttonsUsed[buttonType] || gameState.isAnimating) return;
+                                resetIdleTimer(); // 重置空闲计时器
                                 gameState.buttonsUsed[buttonType] = true;
                                 document.getElementById(`btn-${buttonType}`).disabled = true;
                                 gameState.comboCount++;
@@ -1816,6 +1985,11 @@
             console.log('game-board dimensions:', gameBoardEl?.offsetWidth, 'x', gameBoardEl?.offsetHeight);
             console.log('game-board children count:', gameBoardEl?.children.length);
         }, 200);
+        
+        // 重置空闲计时器
+        if (typeof resetIdleTimer === 'function') {
+            resetIdleTimer();
+        }
     }
 
     // 关闭MOJO消消乐全屏界面
