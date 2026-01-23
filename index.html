@@ -579,7 +579,7 @@
                     
                     /* 技能区下面的分隔框 */
                     #mojo-content .skill-divider {
-                        height: 20px;
+                        height: 30px;
                         background: #e1e1e1;
                         margin: 5px 0 10px 0;
                     }
@@ -1608,11 +1608,26 @@
                                     const movedPositions = new Set();
                                     for (let col = 0; col < CONFIG.GRID_COLS; col++) {
                                         for (let row = CONFIG.GRID_ROWS - 1; row >= 0; row--) {
-                                            if (propPositions.has(`${row},${col}`)) continue;
-                                            if (gameState.grid[row][col].animal === null) {
+                                            // 当前格子是空的（animal为null且没有道具），可以接收上方落下的元素
+                                            if (gameState.grid[row][col].animal === null && !gameState.grid[row][col].prop) {
+                                                // 向上查找源格子（包括道具格子），但不能跳过propPositions中的格子
                                                 let sourceRow = row - 1;
-                                                while (sourceRow >= 0 && (gameState.grid[sourceRow][col].animal === null || propPositions.has(`${sourceRow},${col}`))) sourceRow--;
-                                                if (sourceRow >= 0) {
+                                                while (sourceRow >= 0) {
+                                                    const sourceKey = `${sourceRow},${col}`;
+                                                    // 如果源格子有动物或道具，且不在propPositions中（不是本次消除产生的道具），则可以使用
+                                                    if (propPositions.has(sourceKey)) {
+                                                        // 如果propPositions中有这个格子，继续向上查找
+                                                        sourceRow--;
+                                                        continue;
+                                                    }
+                                                    if (gameState.grid[sourceRow][col].animal !== null || gameState.grid[sourceRow][col].prop) {
+                                                        // 找到有效的源格子
+                                                        break;
+                                                    }
+                                                    sourceRow--;
+                                                }
+                                                if (sourceRow >= 0 && !propPositions.has(`${sourceRow},${col}`)) {
+                                                    // 移动源格子到当前位置
                                                     gameState.grid[row][col] = gameState.grid[sourceRow][col];
                                                     gameState.grid[sourceRow][col] = { animal: null, prop: null };
                                                     hasChanges = true;
@@ -1640,7 +1655,8 @@
                                 const positionsToAnimate = new Set();
                                 for (let col = 0; col < CONFIG.GRID_COLS; col++) {
                                     for (let row = 0; row < CONFIG.GRID_ROWS; row++) {
-                                        if (gameState.grid[row][col].animal === null && !propPositions.has(`${row},${col}`)) {
+                                        // 只有当格子完全为空（没有动物且没有道具）时才填充
+                                        if (gameState.grid[row][col].animal === null && !gameState.grid[row][col].prop && !propPositions.has(`${row},${col}`)) {
                                             gameState.grid[row][col] = { animal: getRandomAnimal(), prop: null };
                                             positionsToAnimate.add(`${row},${col}`);
                                         }
@@ -1652,6 +1668,20 @@
                                     const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
                                     if (cell) cell.classList.add('drop-animation');
                                 });
+                                
+                                // 填充后检查是否形成新的消除，自动消除
+                                setTimeout(() => {
+                                    const newMatches = findMatches();
+                                    if (newMatches.length > 0) {
+                                        gameState.comboCount = 0;
+                                        processMatches();
+                                    } else {
+                                        // 检查是否还有可能的移动
+                                        if (!hasPossibleMoves()) {
+                                            resetGridWithAnimation();
+                                        }
+                                    }
+                                }, CONFIG.ANIMATION_DURATION);
                             }
 
                             function isInCombination(match) { return false; }
@@ -1661,6 +1691,7 @@
                                 resetIdleTimer(); // 重置空闲计时器
                                 gameState.skillUsed = true;
                                 const positionsToEliminate = [];
+                                const propPositions = new Set(); // 记录道具位置，用于下落逻辑
                                 switch (propType) {
                                     case 'prop_v':
                                         for (let r = 0; r < CONFIG.GRID_ROWS; r++) positionsToEliminate.push({ row: r, col });
@@ -1697,10 +1728,12 @@
                                 });
                                 setTimeout(() => {
                                     setTimeout(() => {
+                                        // 标记被消除的格子为空
                                         positionsToEliminate.forEach(pos => {
-                                            gameState.grid[pos.row][pos.col] = { animal: getRandomAnimal(), prop: null };
+                                            gameState.grid[pos.row][pos.col] = { animal: null, prop: null };
                                         });
-                                        renderGrid();
+                                        // 调用下落逻辑，让所有空格子（包括道具原来的位置）正常下落和填充
+                                        dropAnimalsWithGravity(propPositions);
                                         setTimeout(() => {
                                             const newMatches = findMatches();
                                             if (newMatches.length > 0) {
@@ -1710,7 +1743,7 @@
                                                     resetGridWithAnimation();
                                                 }
                                             }
-                                        }, CONFIG.ANIMATION_DURATION);
+                                        }, CONFIG.ANIMATION_DURATION * 2);
                                     }, CONFIG.ANIMATION_DURATION / 2);
                                 }, CONFIG.ANIMATION_DURATION);
                             }
@@ -1766,7 +1799,13 @@
                                 });
                                 setTimeout(() => {
                                     positionsToEliminate.forEach(pos => {
-                                        gameState.grid[pos.row][pos.col] = { animal: getRandomAnimal(), prop: null };
+                                        // 保留道具，只替换动物
+                                        if (!gameState.grid[pos.row][pos.col].prop) {
+                                            gameState.grid[pos.row][pos.col] = { animal: getRandomAnimal(), prop: null };
+                                        } else {
+                                            // 如果有道具，只清除动物
+                                            gameState.grid[pos.row][pos.col].animal = getRandomAnimal();
+                                        }
                                     });
                                     renderGrid();
                                     setTimeout(() => {
