@@ -230,7 +230,7 @@
         /* 让宏宏决定按钮 */
         .random-btn {
             position: absolute;
-            bottom: 50px;
+            bottom: 80px;
             right: 10px;
             padding: 10px 20px;
             background: linear-gradient(135deg, #ff69b4, #ff80ab);
@@ -295,7 +295,7 @@
         @media (max-width: 767px) {
             :root { --sidebar-width: 45%; }
             .category-title { font-size: 12px; padding: 6px 10px; }
-            .icon-grid { gap: 6px; }
+            .icon-grid { gap: 6px; grid-template-columns: repeat(2, 1fr); }
             .item-icon { min-width: 42px; }
             .control-btn span { font-size: 12px; }
             .random-btn { padding: 8px 16px; font-size: 12px; bottom: 40px; }
@@ -306,7 +306,7 @@
         @media (max-width: 479px) {
             :root { --sidebar-width: 50%; }
             .category-title { font-size: 11px; padding: 5px 8px; }
-            .icon-grid { gap: 4px; }
+            .icon-grid { gap: 4px; grid-template-columns: repeat(2, 1fr); }
             .item-icon { min-width: 38px; }
             .controls { height: 100px; }
             .control-btn span { font-size: 10px; }
@@ -1932,6 +1932,7 @@
             </div>
         </div>
 
+       
         <div class="footer-stats" id="stats">Styled by 第 loading... 位 奇迹宏宏搭配师</div>
         <div class="footer-stats" style="bottom: 30px;">developed by 小红书 熊貓団子</div>
         
