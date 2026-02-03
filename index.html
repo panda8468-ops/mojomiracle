@@ -10,6 +10,7 @@
             --bg-color: #fce4ec; /* 背景色 */
             --stage-height: 70%; /* 展示区高度 */
             --wardrobe-height: 30%; /* 衣橱区高度 */
+            --icon-size: 60px; /* 单个icon固定大小 (可被媒体查询覆盖) */
         }
 
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; background-color: var(--bg-color); }
@@ -91,7 +92,7 @@
         
         .icon-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(45px, 1fr));
+            grid-template-columns: repeat(auto-fill, var(--icon-size));
             gap: 8px;
             padding: 5px 0;
             justify-content: start;
@@ -103,7 +104,8 @@
         .icon-grid.collapsed { display: none; }
 
         .item-icon {
-            aspect-ratio: 1 / 1;
+            width: var(--icon-size);
+            height: var(--icon-size);
             background: #f5f5f5;
             border-radius: 50%;
             cursor: pointer;
@@ -111,7 +113,8 @@
             position: relative;
             overflow: hidden;
             transition: transform 0.2s, border-color 0.2s;
-            max-width: 100%;
+            box-sizing: border-box;
+            flex: 0 0 auto;
         }
 
         .item-icon:hover {
@@ -131,59 +134,57 @@
         .item-icon.selected { border-color: #4caf50; background: #e8f5e9; }
         .item-icon.last-worn { border-color: #ff4081; background: #ffebee; }
 
-        /* 左侧底部按钮区 - 改为上方右下角 */
+        /* 底部按钮区（位于衣橱区底部） */
         .controls {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
             height: auto;
-            width: auto;
-            background: transparent;
+            background: #fff;
             display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
+            justify-content: space-around;
             align-items: center;
-            padding: 5px;
-            border: none;
+            padding: 12px;
+            border-top: 1px solid #eee;
             gap: 8px;
-            z-index: 50;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
         }
 
         .control-btn {
-            width: 45px;
-            height: 45px;
-            background-size: 100% auto;
+            min-width: 80px;
+            height: 60px;
+            background-size: 100% 100%;
             background-repeat: no-repeat;
-            background-position: center;
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 2px solid #ff69b4;
+            background-position: center center;
+            background-color: transparent;
+            border: none;
             cursor: pointer;
-            border-radius: 50%;
-            flex-shrink: 0;
+            border-radius: 0;
+            padding: 0;
+            font-weight: bold;
+            color: #ff69b4;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            transition: all 0.2s;
+            gap: 4px;
+            transition: opacity 0.15s;
+            position: relative;
         }
-        
-        .control-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 12px rgba(255, 105, 180, 0.4);
-        }
-        
-        .control-btn:active {
-            transform: scale(0.95);
-        }
-        
+
+        .control-btn:hover { opacity: 0.8; }
+        .control-btn:active { opacity: 0.6; }
+
         .control-btn span { 
-            font-size: 11px; 
+            font-size: 12px; 
             font-weight: bold; 
-            color: #ff69b4;
-            display: none;
+            color: inherit;
+            display: block;
+            text-align: center;
+            line-height: 1.2;
+            max-width: 90%;
         }
-        
-        .control-btn.btn-strip span {
+
+        .control-btn.btn-strip {
+            background-color: #ff69b4;
             color: #fff;
         }
 
@@ -332,38 +333,38 @@
 
         /* 响应式调整 */
         @media (min-width: 1200px) {
-            :root { --stage-height: 70%; --wardrobe-height: 30%; }
+            :root { --stage-height: 70%; --wardrobe-height: 30%; --icon-size: 72px; }
             .category-title { font-size: 14px; padding: 10px 15px; }
             .icon-grid { gap: 12px; }
             .item-icon { min-width: 55px; }
-            .control-btn { width: 50px; height: 50px; }
+            .control-btn { min-width: 90px; height: 70px; }
         }
 
         @media (max-width: 1199px) and (min-width: 768px) {
-            :root { --stage-height: 70%; --wardrobe-height: 30%; }
+            :root { --stage-height: 70%; --wardrobe-height: 30%; --icon-size: 64px; }
             .category-title { font-size: 13px; padding: 8px 12px; }
             .icon-grid { gap: 10px; }
             .item-icon { min-width: 48px; }
-            .control-btn { width: 48px; height: 48px; }
+            .control-btn { min-width: 85px; height: 65px; }
         }
 
         @media (max-width: 767px) {
-            :root { --stage-height: 68%; --wardrobe-height: 32%; }
+            :root { --stage-height: 68%; --wardrobe-height: 32%; --icon-size: 54px; }
             .category-title { font-size: 12px; padding: 8px 10px; }
-            .icon-grid { gap: 6px; grid-template-columns: repeat(2, 1fr); }
+            .icon-grid { gap: 6px; grid-template-columns: repeat(auto-fill, var(--icon-size)); }
             .item-icon { min-width: 42px; }
-            .control-btn { width: 42px; height: 42px; }
+            .control-btn { min-width: 75px; height: 55px; }
             .random-btn { padding: 8px 16px; font-size: 12px; bottom: 60px; }
             .mojo-btn { padding: 8px 16px; font-size: 12px; top: 10px; right: 5px; }
             .footer-stats { font-size: 10px; }
         }
 
         @media (max-width: 479px) {
-            :root { --stage-height: 65%; --wardrobe-height: 35%; }
+            :root { --stage-height: 65%; --wardrobe-height: 35%; --icon-size: 46px; }
             .category-title { font-size: 11px; padding: 6px 8px; }
-            .icon-grid { gap: 4px; grid-template-columns: repeat(2, 1fr); }
+            .icon-grid { gap: 4px; }
             .item-icon { min-width: 38px; }
-            .control-btn { width: 40px; height: 40px; }
+            .control-btn { min-width: 70px; height: 50px; }
             .random-btn { padding: 6px 12px; font-size: 10px; bottom: 50px; right: 5px; }
         }
 
@@ -377,6 +378,13 @@
         <div class="wardrobe-list" id="wardrobe-container">
             <!-- JS会自动在这里生成列表 -->
         </div>
+
+        <div class="controls bottom-buttons">
+            <button class="control-btn" onclick="moveLayer(1)" style="background-image: url('assets/ui/btn_up.png')"><span>上移一层</span></button>
+            <button class="control-btn" onclick="moveLayer(-1)" style="background-image: url('assets/ui/btn_down.png')"><span>下移一层</span></button>
+            <button class="control-btn" onclick="undo()" style="background-image: url('assets/ui/btn_undo.png')"><span>上一步</span></button>
+            <button class="control-btn btn-strip" onclick="handleStrip()" style="background-image: url('assets/ui/btn_strip.png')"><span>一键脱衣</span></button>
+        </div>
     </div>
 
     <!-- 右侧区域 -->
@@ -385,12 +393,7 @@
             <img src="assets/clothing/body.png" class="clothing-layer" style="z-index: 0" alt="body">
         </div>
 
-        <div class="controls">
-            <button class="control-btn" onclick="moveLayer(1)" style="background-image: url('assets/ui/btn_up.png')"><span>上移一层</span></button>
-            <button class="control-btn" onclick="moveLayer(-1)" style="background-image: url('assets/ui/btn_down.png')"><span>下移一层</span></button>
-            <button class="control-btn" onclick="undo()" style="background-image: url('assets/ui/btn_undo.png')"><span>上一步</span></button>
-            <button class="control-btn btn-strip" onclick="handleStrip()" style="background-image: url('assets/ui/btn_strip.png')"><span>一键脱衣</span></button>
-        </div>
+        <!-- 控制按钮已移至衣橱区底部（.controls） -->
 
         <div class="dialog-box" id="dialog"></div>
 
@@ -2016,14 +2019,14 @@
         "bottom1001.png", "bottom1002.png", "bottom1003.png","bottom1004.png", "bottom1005.png", "bottom1006.png", "bottom1007.png","bottom1008.png","bottom1009.png","bottom1010.png",
         "coat1001-1.png", "coat1001-2.png",
         "coat1002-1.png", "coat1002-2.png", "coat1013-1.png", "coat1013-2.png", "coat1014.png", "coat1015.png",  "coat1016.png", "coat1017.png","coat1018.png","coat1019.png",
-        "coat1020.png","coat1021.png","coat1022.png",
+        "coat1020.png","coat1021.png","coat1022.png","coat1023.png",
         "coat1003.png", "coat1004.png","coat1005.png", "coat1006.png", "coat1007-1.png", "coat1007-2.png", "coat1008-1.png", "coat1008-2.png", "coat1009.png","coat1010.png","coat1011.png","coat1012.png",
         "hoodie1001.png","knit1001-1.png","med1001.png","med1002.png","med1003.png","knit1002-1.png","knit1002-2.png",
         "tie1001-1.png","tie1001-2.png","tie1002-1.png","tie1002-2.png","tie1003-1.png","tie1003-2.png","tie1004.png","tie1005-1.png","tie1005-2.png","tie1006-1.png","tie1006-2.png","tie1007-1.png","tie1007-2.png",
         "tie1008-1.png","tie1008-2.png","tie1009-1.png","tie1009-2.png",
         "shirt1001.png","shirt1002.png","shirt1003.png","shirt1004.png","shirt1005.png","shirt1006.png","shirt1007.png","shirt1008-1.png","shirt1004-2.png","shirt1004-3.png","shirt1004-4.png","shirt1004-5.png",
         "shoes1001.png","shoes1002.png","shoes1003.png", "txu1001-1.png","txu1001-2.png","txu1002-1.png","txu1003-1.png","txu1003-2.png","txu1004.png","txu1005.png","txu1006.png",
-        "txu1007.png",
+        "txu1007.png","txu1008.png",
         "hand1001.png","hand1002.png","hand1003.png","hand1004.png"
     ];
 
@@ -2114,8 +2117,15 @@
         const sidebarWidth = sidebar.offsetWidth;
         const containerPadding = 10;
         const availableWidth = sidebarWidth - (containerPadding * 2);
-        const iconSize = Math.min(55, Math.max(38, (availableWidth - 40) / 5));
-        document.documentElement.style.setProperty('--item-icon-size', `${iconSize}px`);
+        // 根据可用宽度动态计算icon大小，取消固定每行数量限制
+        const gap = 8; // 与CSS中grid gap保持一致的近似值
+        // 以60px为目标单个icon参考大小，计算能容纳的列数
+        let cols = Math.max(1, Math.floor(availableWidth / 60));
+        // 计算不超过可用宽度的icon大小（考虑gap）
+        let iconSize = Math.floor((availableWidth - (cols - 1) * gap) / cols);
+        // 限制尺寸范围，防止过大或过小
+        iconSize = Math.max(40, Math.min(90, iconSize));
+        document.documentElement.style.setProperty('--icon-size', `${iconSize}px`);
     }
 
     function renderWardrobe() {
