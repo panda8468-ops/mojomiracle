@@ -214,17 +214,18 @@
             top: 10%;
             right: 10%;
             background: white;
-            padding: 15px;
-            border-radius: 15px;
-            border: 2px solid #333;
-            max-width: 150px;
+            padding: 8px;
+            border-radius: 10px;
+            border: 1px solid #333;
+            max-width: 75px;
+            font-size: 12px;
             display: none;
             animation: float 2s infinite ease-in-out;
             z-index: 999;
         }
         .dialog-box:after {
-            content: ''; position: absolute; bottom: -10px; right: 20px;
-            border-width: 10px 10px 0; border-style: solid;
+            content: ''; position: absolute; bottom: -5px; right: 10px;
+            border-width: 5px 5px 0; border-style: solid;
             border-color: #333 transparent; display: block; width: 0;
         }
 
@@ -408,8 +409,8 @@
             </video>
         </div>
 
-        <div class="footer-stats" id="stats">Styled by 第 loading... 位 奇迹宏宏搭配师</div>
-        <div class="footer-stats" id="developer">developed by 小红书 熊貓团子</div>
+        <div class="footer-stats" id="stats">第 loading... 位 奇迹宏宏搭配师</div>
+        <div class="footer-stats" id="developer">Dev by 小红书 熊貓団子</div>
 
         <!-- MOJO消消乐全屏容器 -->
         <div id="mojo-overlay">
@@ -2511,7 +2512,7 @@
             count = parseInt(count) + 1;
         }
         localStorage.setItem('visitorCount', count);
-        document.getElementById('stats').textContent = `Styled by 第 ${count} 位 奇迹宏宏搭配师`;
+        document.getElementById('stats').textContent = `第 ${count} 位 奇迹宏宏搭配师`;
     }
 
     // 闲置时显示的随机提示语
