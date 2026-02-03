@@ -233,13 +233,18 @@
         /* 底部统计 */
         .footer-stats {
             position: absolute;
-            bottom: 10px;
-            width: 100%;
-            text-align: center;
+            bottom: 20px;
+            left: 20px;
+            width: auto;
+            text-align: left;
             color: #666;
             font-size: 12px;
             text-shadow: 1px 1px 0 #fff;
             z-index: 100;
+        }
+
+        #developer {
+            bottom: 5px;
         }
 
         /* 视频层 */
@@ -402,6 +407,9 @@
                 <source src="assets/video/surprise.mp4" type="video/mp4">
             </video>
         </div>
+
+        <div class="footer-stats" id="stats">Styled by 第 loading... 位 奇迹宏宏搭配师</div>
+        <div class="footer-stats" id="developer">developed by 小红书 熊貓团子</div>
 
         <!-- MOJO消消乐全屏容器 -->
         <div id="mojo-overlay">
@@ -1988,12 +1996,8 @@
                 <!-- Mojo游戏内容结束 -->
             </div>
         </div>
-
-       
-        <div class="footer-stats" id="stats">Styled by 第 loading... 位 奇迹宏宏搭配师</div>
-        <div class="footer-stats" style="bottom: 30px;">developed by 小红书 熊貓団子</div>
         
-        <button class="mojo-btn" onclick="openMojo()">去玩MOJO消消乐Beta版</button>
+        <button class="mojo-btn" onclick="openMojo()">去玩MOJO消消乐</button>
         <button class="random-btn" onclick="randomOutfit()">让宏宏决定</button>
     </div>
 </div>
